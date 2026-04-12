@@ -1,0 +1,475 @@
+# cursor.rules
+
+Dieses Projekt wird strikt und verbindlich nach den Dokumenten im Verzeichnis `docs/` umgesetzt.
+
+---
+
+## Verbindliche Referenzdokumente
+
+Vor jeder Analyse, Änderung, Implementierung, Umstrukturierung oder Erweiterung sind immer diese Dokumente zu lesen und zu beachten:
+
+1. `docs/projektrules.md`
+2. `docs/architecture.md`
+3. `docs/projectstructure.md`
+4. `docs/pflichtenheft.md`
+5. `docs/datenbankmodell.md`
+
+Es ist verboten, nur auf Basis allgemeiner Annahmen, Framework-Konventionen oder Standard-Scaffolding zu arbeiten.
+
+Wenn Dokumente und bestehender Code im Widerspruch stehen, gelten die Dokumente als führend.
+
+---
+
+## Grundsatz
+
+Dieses Projekt folgt strikt:
+
+- Domain-Driven Design (DDD)
+- hexagonaler Architektur
+- testgetriebener Entwicklung (TDD)
+- API-first Backend
+- klarer Trennung von Frontend, Backend, Persistenz und ERP-Integration
+
+Diese Prinzipien sind nicht verhandelbar.
+
+---
+
+## Führende fachliche Regeln
+
+Die fachlichen Regeln dieses Projekts ergeben sich aus `docs/pflichtenheft.md` und `docs/projektrules.md`.
+
+Insbesondere gilt verbindlich:
+
+- Das ERP ist führend für Bestände, Materialstammdaten und reale Aufträge.
+- Die App ist eine dispositive Planungsschicht.
+- Reservierungen existieren ausschließlich in der App.
+- Priorisierung erfolgt materialbezogen.
+- Priorisierung wirkt sequenziell auf die Verfügbarkeit.
+- Reststücke werden aggregiert pro Materialtyp geführt.
+- Reststücknutzung erfolgt bewusst und nicht automatisch im MVP.
+- Die Ampellogik wird ausschließlich im Backend berechnet.
+- Direkte Kommunikation vom Frontend mit dem ERP ist verboten.
+
+---
+
+## Pflichtablauf vor jeder Umsetzung
+
+Vor jeder Umsetzung ist immer in dieser Reihenfolge zu arbeiten:
+
+1. Relevante Dokumente lesen
+2. Aufgabe fachlich einordnen
+3. Aufgabe architektonisch einer Schicht zuordnen
+4. Zielordner anhand `docs/projectstructure.md` festlegen
+5. Betroffene Tests bestimmen
+6. Implementierung minimal und schichtkonform umsetzen
+7. Dokumentationsbedarf prüfen
+8. Definition of Done prüfen
+
+Es ist verboten, direkt mit Implementierung zu beginnen, ohne die Aufgabe vorher architektonisch einzuordnen.
+
+---
+
+## Verbindliche Schichtenzuordnung
+
+### Domain
+
+Die Domain ist zuständig für:
+
+- fachliche Begriffe
+- fachliche Regeln
+- Invarianten
+- Statusregeln
+- Berechnungslogik
+- Entscheidungslogik
+- Value Objects
+- Entities
+- Domain Services
+
+Typische Inhalte:
+
+- Verfügbarkeitslogik
+- Ampellogik
+- Priorisierungslogik
+- Reststücklogik
+- Statusübergänge
+- fachliche Validierung
+
+Verboten:
+
+- Datenbankzugriffe
+- FastAPI / HTTP
+- ERP-Zugriffe
+- UI-Logik
+- technische Frameworks
+
+---
+
+### Application
+
+Zuständig für:
+
+- Use Cases
+- Orchestrierung
+- Ablaufsteuerung
+- Nutzung von Ports
+
+Beispiele:
+
+- `CreateOrderUseCase`
+- `ReserveOrderUseCase`
+- `ReprioritizeOrdersUseCase`
+- `LinkErpOrderUseCase`
+
+Verboten:
+
+- SQLAlchemy
+- HTTP-Logik
+- ERP-Mapping
+- UI-Logik
+
+---
+
+### Ports
+
+- definieren Schnittstellen
+- enthalten keine Implementierung
+
+---
+
+### Adapter
+
+- implementieren Ports
+- enthalten nur technische Logik
+
+Zuständig für:
+
+- Datenbank
+- ERP
+- Auth
+- externe Systeme
+
+---
+
+### API
+
+Zuständig für:
+
+- Routing
+- Request/Response
+- Validierung
+- Aufruf von Use Cases
+
+Verboten:
+
+- Fachlogik
+- direkte DB-Zugriffe
+- ERP-Logik
+
+---
+
+### Frontend
+
+Zuständig für:
+
+- UI
+- Eingabe
+- Darstellung
+- Workflow
+
+Verboten:
+
+- Fachlogik
+- ERP-Kommunikation
+- Verfügbarkeitsberechnung
+- Priorisierungslogik
+
+---
+
+## Verbindliche Ordnerregeln
+
+### Backend
+
+- `domain/` → Fachlogik
+- `application/` → Use Cases
+- `ports/` → Interfaces
+- `adapters/` → Implementierungen
+- `config/` → Konfiguration
+
+Optional unter `adapters/`:
+
+- api/
+- persistence/
+- erp/
+- auth/
+
+Verboten:
+
+- falsche Schichtzuordnung
+- doppelte Strukturen
+- Domain-Logik außerhalb `domain/`
+
+---
+
+### Frontend
+
+- `app/` → Routing
+- `features/` → fachliche Module
+- `components/` → UI
+- `lib/` → technische Helfer
+
+---
+
+## Strikte Architekturregeln
+
+1. Abhängigkeiten zeigen nach innen
+2. Domain kennt keine Infrastruktur
+3. Application nutzt Domain + Ports
+4. Adapter implementieren Ports
+5. API ruft Application auf
+6. Frontend spricht nur mit Backend
+7. ERP nur über Adapter
+8. ORM ≠ Domain
+9. keine Fachlogik in Adaptern
+10. keine doppelte Logik
+
+---
+
+## Verbindliche ERP-Regeln
+
+ERP ist strikt isoliert.
+
+Nur in ERP-Adaptern erlaubt:
+
+- Endpunkte
+- Auth
+- Feldmapping
+- Response-Strukturen
+
+Verboten:
+
+- ERP-Feldnamen in Domain
+- ERP-Logik in Application
+- ERP im Frontend
+- hartcodierte Endpunkte
+
+---
+
+## Verbindliche Persistenzregeln
+
+- PostgreSQL als Standard
+- nur Migrationen (keine direkten Änderungen)
+- ORM ≠ Domain
+- keine Business-Logik in SQL
+
+Bei Änderungen:
+
+1. Schema ändern
+2. Migration erstellen
+3. Code anpassen
+4. Dokumentation aktualisieren
+
+---
+
+## Verbindliche API-Regeln
+
+API darf nur:
+
+- Requests entgegennehmen
+- validieren
+- Use Cases aufrufen
+- Responses zurückgeben
+
+Verboten:
+
+- Fachlogik
+- direkte Repository-Zugriffe
+- ERP-Mapping
+
+---
+
+## Verbindliche Frontend-Regeln
+
+Frontend:
+
+- zeigt Daten
+- ruft Backend auf
+- führt Benutzer
+
+Verboten:
+
+- Business-Logik
+- doppelte Berechnung
+- ERP-Zugriff
+
+---
+
+## Benennungsregeln
+
+Benennung basiert auf Fachsprache aus `pflichtenheft.md`.
+
+Beispiele:
+
+- MaterialType
+- AppOrder
+- RestStockAccount
+- TrafficLight
+
+Verboten:
+
+- Utils
+- Helper
+- Manager ohne Kontext
+- technische Namen ohne Fachbezug
+
+---
+
+## TDD-Verpflichtung
+
+1. Test schreiben
+2. Test schlägt fehl
+3. minimal implementieren
+4. Test besteht
+5. Refactor
+
+Testarten:
+
+- Domain → Unit
+- Application → Use Case
+- Adapter → Integration
+- API → Endpoint
+
+---
+
+## Dokumentationspflicht
+
+Bei jeder Änderung prüfen:
+
+- Fachlogik → pflichtenheft.md
+- Architektur → architecture.md
+- Struktur → projectstructure.md
+- Daten → datenbankmodell.md
+- Regeln → projektrules.md
+
+---
+
+## Versions- und Dokumentationskonsistenz
+
+Code, Datenmodell und Dokumentation dürfen niemals auseinanderlaufen.
+
+Jede Änderung muss konsistent umgesetzt werden.
+
+Dokumentation ist verpflichtend.
+
+---
+
+## Verbindliche Git-Regeln
+
+- niemals direkt auf `main`
+- Feature-Branches verwenden
+- kleine, saubere Commits
+- keine Mischänderungen
+- Commit-Typen:
+  - feat:
+  - fix:
+  - refactor:
+  - test:
+  - docs:
+
+---
+
+## Verbotene Patterns
+
+- God Services
+- Fachlogik in API oder ORM
+- direkte ERP-Zugriffe
+- doppelte Logik
+- utils für Kernlogik
+- Magic Strings
+- versteckte Architekturwechsel
+
+---
+
+## Qualitätsregeln
+
+Code muss:
+
+- sauber strukturiert sein
+- fachlich verständlich sein
+- testbar sein
+- ohne Seiteneffekte sein
+
+---
+
+## Definition of Done
+
+Eine Aufgabe ist fertig, wenn:
+
+- richtige Schicht verwendet wurde
+- richtiger Ordner verwendet wurde
+- Tests vorhanden sind
+- Tests erfolgreich sind
+- Dokumentation geprüft wurde
+- keine Regel verletzt wurde
+
+---
+
+## Verhalten bei Unsicherheit
+
+Reihenfolge:
+
+1. projektrules.md
+2. pflichtenheft.md
+3. architecture.md
+4. projectstructure.md
+5. datenbankmodell.md
+
+Keine eigene Architektur erfinden.
+
+---
+
+## Execution Checklist
+
+Vor Abschluss jeder Aufgabe prüfen:
+
+### 1. Fachlich
+- korrekt verstanden?
+- keine neue Logik erfunden?
+
+### 2. Schicht
+- richtige Schicht?
+- keine Regel verletzt?
+
+### 3. Struktur
+- richtiger Ordner?
+- keine Doppelstruktur?
+
+### 4. ERP
+- nur über Adapter?
+
+### 5. Datenbank
+- Migration nötig?
+- Doku angepasst?
+
+### 6. Tests
+- vorhanden?
+- sinnvoll?
+
+### 7. Dokumentation
+- alle betroffenen Docs geprüft?
+
+### 8. Versionierung
+- logisch trennbar?
+- sauber commitbar?
+
+### 9. Git
+- nicht auf main?
+- sauberer Commit?
+
+### 10. Qualität
+- klare Benennung?
+- keine Hacks?
+
+### 11. Abschluss
+- alles erfüllt?
+
+Wenn nicht: Aufgabe ist nicht fertig.

@@ -1,0 +1,59 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: infra/docker/backend.Dockerfile
+    container_name: lagerapp-backend
+    environment:
+      APP_NAME: lager-app-backend
+      APP_ENV: development
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: lagerapp
+      POSTGRES_USER: lagerapp
+      POSTGRES_PASSWORD: lagerapp
+      DATABASE_URL: ""
+      AUTH_SECRET_KEY: lager-app-dev-secret
+      AUTH_ACCESS_TOKEN_TTL_SECONDS: 3600
+      ERP_PROFILE_NAME: default
+      PHOTO_UPLOAD_DIRECTORY: /app/uploads
+      DEMO_SEED_ON_STARTUP: "true"
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:3001,http://192.168.178.160:3001}
+      SAGE_SIMULATOR_BASE_URL: http://localhost:8000/simulator/sage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+    networks:
+      - lagerapp-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: lagerapp-postgres
+    environment:
+      POSTGRES_DB: lagerapp
+      POSTGRES_USER: lagerapp
+      POSTGRES_PASSWORD: lagerapp
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lagerapp -d lagerapp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - lagerapp-network
+
+volumes:
+  postgres-data:
+
+networks:
+  lagerapp-network:
