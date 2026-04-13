@@ -1,6 +1,10 @@
 const AUTH_TOKEN_KEY = "lager_app_auth_token";
 const AUTH_CONTEXT_KEY = "lager_app_auth_context";
 const LOGIN_CONNECTION_KEY = "lager_app_login_connection";
+const authListeners = new Set<() => void>();
+
+let authTokenMemory: string | null = null;
+let authContextMemory: AuthSessionContext | null = null;
 
 export type AuthSessionContext = {
   user_id: number;
@@ -14,40 +18,35 @@ function isBrowser(): boolean {
   return typeof window !== "undefined";
 }
 
-export function getAuthToken(): string | null {
-  if (!isBrowser()) {
-    return null;
+function notifyAuthListeners(): void {
+  for (const listener of authListeners) {
+    listener();
   }
-  return window.localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+export function subscribeAuthSession(listener: () => void): () => void {
+  authListeners.add(listener);
+  return () => {
+    authListeners.delete(listener);
+  };
+}
+
+export function getAuthToken(): string | null {
+  return authTokenMemory;
 }
 
 export function setAuthToken(token: string): void {
-  if (!isBrowser()) {
-    return;
-  }
-  window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+  authTokenMemory = token;
+  notifyAuthListeners();
 }
 
 export function getAuthSessionContext(): AuthSessionContext | null {
-  if (!isBrowser()) {
-    return null;
-  }
-  const raw = window.localStorage.getItem(AUTH_CONTEXT_KEY);
-  if (!raw) {
-    return null;
-  }
-  try {
-    return JSON.parse(raw) as AuthSessionContext;
-  } catch {
-    return null;
-  }
+  return authContextMemory;
 }
 
 export function setAuthSessionContext(context: AuthSessionContext): void {
-  if (!isBrowser()) {
-    return;
-  }
-  window.localStorage.setItem(AUTH_CONTEXT_KEY, JSON.stringify(context));
+  authContextMemory = context;
+  notifyAuthListeners();
 }
 
 export function getPreferredLoginConnection():
@@ -75,9 +74,14 @@ export function setPreferredLoginConnection(
 }
 
 export function clearAuthToken(): void {
+  authTokenMemory = null;
+  authContextMemory = null;
   if (!isBrowser()) {
+    notifyAuthListeners();
     return;
   }
+  // Cleanup old persisted entries from previous app versions.
   window.localStorage.removeItem(AUTH_TOKEN_KEY);
   window.localStorage.removeItem(AUTH_CONTEXT_KEY);
+  notifyAuthListeners();
 }

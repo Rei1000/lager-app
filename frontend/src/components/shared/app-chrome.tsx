@@ -2,11 +2,16 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/api-client";
-import { AuthSessionContext, getAuthSessionContext, getAuthToken } from "@/lib/auth-session";
+import {
+  AuthSessionContext,
+  getAuthSessionContext,
+  getAuthToken,
+  subscribeAuthSession,
+} from "@/lib/auth-session";
 
 type NavigationItem = {
   href: string;
@@ -66,33 +71,30 @@ type AppChromeProps = {
 export function AppChrome({ children }: AppChromeProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [authContext, setAuthContext] = useState<AuthSessionContext | null>(null);
   const [hasToken, setHasToken] = useState(false);
-  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    setAuthContext(getAuthSessionContext());
-    setHasToken(Boolean(getAuthToken()));
-    setInitialized(true);
+    const syncAuthState = () => {
+      setAuthContext(getAuthSessionContext());
+      setHasToken(Boolean(getAuthToken()));
+    };
+    setMounted(true);
+    syncAuthState();
+    return subscribeAuthSession(syncAuthState);
   }, []);
 
-  useEffect(() => {
-    if (!initialized) {
-      return;
-    }
-    setAuthContext(getAuthSessionContext());
-    setHasToken(Boolean(getAuthToken()));
-  }, [initialized, pathname]);
-
   const roleCode = authContext?.role_code ?? null;
-  const visibleItems = getVisibleNavigationItems(roleCode);
+  const visibleItems = useMemo(() => getVisibleNavigationItems(roleCode), [roleCode]);
   const isLoginRoute = pathname === "/login";
   const isAuthenticated = hasToken && authContext !== null;
-  const shouldBlockByMissingRole = isAuthenticated && !hasSupportedRole(roleCode) && !isLoginRoute;
-  const shouldShowNavigation = isAuthenticated && hasSupportedRole(roleCode) && !isLoginRoute;
+  const shouldBlockByMissingRole =
+    mounted && isAuthenticated && !hasSupportedRole(roleCode) && !isLoginRoute;
+  const shouldShowNavigation = mounted && isAuthenticated && hasSupportedRole(roleCode) && !isLoginRoute;
 
   useEffect(() => {
-    if (!initialized) {
+    if (!mounted) {
       return;
     }
     if (isLoginRoute) {
@@ -104,7 +106,7 @@ export function AppChrome({ children }: AppChromeProps) {
     if (!hasToken) {
       router.replace("/login");
     }
-  }, [initialized, isLoginRoute, isAuthenticated, roleCode, hasToken, router]);
+  }, [mounted, isLoginRoute, isAuthenticated, roleCode, hasToken, router]);
 
   function handleLogout() {
     logout();
