@@ -287,6 +287,34 @@ Zugriff:
 
 ⸻
 
+▶️ App-Starter fuer lokale Entwicklung
+
+Mit einem Befehl werden lokale Dev-Prozesse sauber neu gestartet:
+
+	•	Prozesse auf Port 3001 und 9999 beenden
+	•	docker compose down && docker compose up -d --build
+	•	`frontend/.next` loeschen
+	•	Frontend-Dev-Server neu starten
+	•	optional Python-Testserver auf Port 9999 starten
+	•	am Ende Status + URLs ausgeben
+
+Aufrufe:
+
+	•	`./scripts/start-app.sh localhost`
+	•	`./scripts/start-app.sh lan`
+	•	`./scripts/start-app.sh tailscale`
+	•	`./scripts/start-app.sh localhost --with-testserver`
+
+Modi:
+
+	•	`localhost`: nur fuer lokale Nutzung auf dem Mac (`localhost:3001` <-> `localhost:8001`)
+	•	`lan`: fuer Nutzung im Heimnetz; nutzt automatisch die LAN-IP des Macs (z. B. `192.168.x.x`)
+	•	`tailscale`: ermittelt automatisch die Tailscale-IP und startet Frontend mit:
+		•	`NEXT_PUBLIC_API_BASE_URL=http://<TS_IP>:8001`
+		•	`NEXT_PUBLIC_MOBILE_APP_URL=http://<TS_IP>:3001/login`
+
+⸻
+
 📱 PWA-Installation (Basis)
 
 - Android/Chrome: Seite oeffnen -> Browsermenue -> "App installieren".
