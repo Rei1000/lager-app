@@ -4,6 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FRONTEND_DIR="$ROOT_DIR/frontend"
+FRONTEND_ENV_FILE="$FRONTEND_DIR/.env.local"
 RUN_DIR="$ROOT_DIR/.run"
 LOG_DIR="$ROOT_DIR/.run/logs"
 
@@ -156,6 +157,15 @@ BACKEND_URL=""
 API_BASE_URL=""
 MOBILE_APP_URL=""
 
+write_frontend_env_file() {
+  cat >"$FRONTEND_ENV_FILE" <<EOF
+# AUTO-GENERIERT durch scripts/start-app.sh
+# Modus: $MODE
+NEXT_PUBLIC_API_BASE_URL=$API_BASE_URL
+NEXT_PUBLIC_MOBILE_APP_URL=$MOBILE_APP_URL
+EOF
+}
+
 if [[ "$MODE" == "localhost" ]]; then
   API_BASE_URL="http://localhost:8001"
   MOBILE_APP_URL="http://localhost:3001/login"
@@ -177,6 +187,9 @@ elif [[ "$MODE" == "tailscale" ]]; then
   FRONTEND_PUBLIC_URL="$MOBILE_APP_URL"
   BACKEND_URL="$API_BASE_URL"
 fi
+
+log "Schreibe Frontend ENV nach $FRONTEND_ENV_FILE"
+write_frontend_env_file
 
 FRONTEND_LOG="$LOG_DIR/frontend-dev.log"
 FRONTEND_PID_FILE="$RUN_DIR/frontend-dev.pid"
