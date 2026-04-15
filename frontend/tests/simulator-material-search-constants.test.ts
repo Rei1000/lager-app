@@ -66,4 +66,10 @@ describe("matchesArticleNumberSimulatorFilters", () => {
     expect(matchesArticleNumberSimulatorFilters("400-FE-025", filters)).toBe(true);
     expect(matchesArticleNumberSimulatorFilters("100-FE-025", filters)).toBe(false);
   });
+
+  it("eignet sich fuer App-Auftraege material_article_number wie fuer ERP-Sim material_no", () => {
+    const filters = { mainGroup: "100", material: "FE", dimension: "025" };
+    expect(matchesArticleNumberSimulatorFilters("100-FE-025", filters)).toBe(true);
+    expect(matchesArticleNumberSimulatorFilters("200-FE-025", filters)).toBe(false);
+  });
 });

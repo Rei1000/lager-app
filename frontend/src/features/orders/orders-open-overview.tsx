@@ -40,8 +40,7 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
     material: "",
     dimension: "",
   });
-  const [simulatorStatusFilter, setSimulatorStatusFilter] = useState("");
-  const [appStatusFilter, setAppStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -79,15 +78,17 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
     };
   }, [listRefreshToken]);
 
-  const simulatorStatusOptions = useMemo(() => {
-    const unique = new Set(simulatorRows.map((r) => r.status));
+  /** Vereinigung der Status-Codes aus App und ERP-Sim (gleiche Filtersemantik: exakter String-Vergleich). */
+  const combinedStatusOptions = useMemo(() => {
+    const unique = new Set<string>();
+    for (const r of appOrders) {
+      unique.add(r.status);
+    }
+    for (const r of simulatorRows) {
+      unique.add(r.status);
+    }
     return [...unique].sort((a, b) => a.localeCompare(b, "de"));
-  }, [simulatorRows]);
-
-  const appStatusOptions = useMemo(() => {
-    const unique = new Set(appOrders.map((r) => r.status));
-    return [...unique].sort((a, b) => a.localeCompare(b, "de"));
-  }, [appOrders]);
+  }, [appOrders, simulatorRows]);
 
   const structuralFilters: SimulatorSearchFilters = useMemo(
     () => ({
@@ -101,7 +102,10 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
   const visibleAppOrders = useMemo(() => {
     const q = materialFilter.textQuery.trim().toLowerCase();
     return [...appOrders]
-      .filter((order) => (appStatusFilter ? order.status === appStatusFilter : true))
+      .filter((order) => (statusFilter ? order.status === statusFilter : true))
+      .filter((order) =>
+        matchesArticleNumberSimulatorFilters(order.material_article_number.trim(), structuralFilters)
+      )
       .filter((order) => {
         if (!q) {
           return true;
@@ -118,13 +122,13 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
         return hay.includes(q);
       })
       .sort((a, b) => appOrderPrimaryLabel(a).localeCompare(appOrderPrimaryLabel(b), "de"));
-  }, [appOrders, appStatusFilter, materialFilter.textQuery]);
+  }, [appOrders, statusFilter, materialFilter.textQuery, structuralFilters]);
 
   const visibleSimulatorOrders = useMemo(() => {
     const q = materialFilter.textQuery.trim().toLowerCase();
     return [...simulatorRows]
-      .filter((order) => (simulatorStatusFilter ? order.status === simulatorStatusFilter : true))
-      .filter((order) => matchesArticleNumberSimulatorFilters(order.material_no, structuralFilters))
+      .filter((order) => (statusFilter ? order.status === statusFilter : true))
+      .filter((order) => matchesArticleNumberSimulatorFilters(order.material_no.trim(), structuralFilters))
       .filter((order) => {
         if (!q) {
           return true;
@@ -140,7 +144,7 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
         return hay.includes(q);
       })
       .sort((a, b) => a.order_no.localeCompare(b.order_no, "de"));
-  }, [simulatorRows, simulatorStatusFilter, structuralFilters, materialFilter.textQuery]);
+  }, [simulatorRows, statusFilter, structuralFilters, materialFilter.textQuery]);
 
   return (
     <div className="grid gap-6">
@@ -156,45 +160,32 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
       {loading ? <p className="text-sm text-slate-600">Lade Daten...</p> : null}
 
       <div className="grid gap-3 rounded border border-slate-200 p-3">
-        <p className="text-xs font-medium text-slate-600">Filter (Volltext gilt fuer App- und Simulator-Auftraege)</p>
+        <p className="text-xs font-medium text-slate-600">
+          Filter gelten fuer <strong>beide</strong> Listen: Volltext, Hauptgruppe/Material/Dimension (ueber
+          Artikelnummer, Schema wie Simulator) und Status (exakter Code; App- und ERP-Sim-Status koennen sich
+          unterscheiden).
+        </p>
         <SimulatorMaterialFilterInputs
           values={materialFilter}
           onChange={setMaterialFilter}
           textQueryLabel="Volltext"
           textQueryPlaceholder="APP-Nummer, Artikel, Status ..."
         />
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="grid max-w-md gap-1">
-            Status App-Auftraege (Domain-Code)
-            <select
-              className="h-10 rounded-md border border-slate-300 px-3 text-sm"
-              value={appStatusFilter}
-              onChange={(e) => setAppStatusFilter(e.target.value)}
-            >
-              <option value="">Alle</option>
-              {appStatusOptions.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid max-w-md gap-1">
-            Status Simulator-Auftraege
-            <select
-              className="h-10 rounded-md border border-slate-300 px-3 text-sm"
-              value={simulatorStatusFilter}
-              onChange={(e) => setSimulatorStatusFilter(e.target.value)}
-            >
-              <option value="">Alle</option>
-              {simulatorStatusOptions.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <label className="grid max-w-md gap-1">
+          Status (App und ERP-Simulator, gleicher Code-Vergleich)
+          <select
+            className="h-10 rounded-md border border-slate-300 px-3 text-sm"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="">Alle Status</option>
+            {combinedStatusOptions.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <section className="grid gap-3" aria-labelledby="app-orders-heading">
