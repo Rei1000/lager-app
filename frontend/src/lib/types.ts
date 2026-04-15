@@ -1,5 +1,8 @@
 export type OrderDto = {
   order_id: string | null;
+  /** Anzeige-Kennung, z. B. APP-000042 (aus DB-Zeile); Fallback: order_id */
+  display_order_code: string;
+  persisted_row_id: number | null;
   material_article_number: string;
   quantity: number;
   part_length_mm: number;

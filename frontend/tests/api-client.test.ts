@@ -44,6 +44,8 @@ describe("api client", () => {
         status: 201,
         json: async () => ({
           order_id: "A1",
+          display_order_code: "APP-000001",
+          persisted_row_id: 1,
           material_article_number: "ART-001",
           quantity: 1,
           part_length_mm: 1000,

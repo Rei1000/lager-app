@@ -95,6 +95,7 @@ class SqlAlchemyOrderRepository(OrderRepositoryPort):
             traffic_light=light,
             erp_order_number=model.erp_order_number,
             created_by_user_id=model.created_by_user_id,
+            persisted_row_id=int(model.id),
         )
 
     def _insert(self, session: Session, order: AppOrder) -> None:
@@ -135,6 +136,7 @@ class SqlAlchemyOrderRepository(OrderRepositoryPort):
         )
         session.add(model)
         session.flush()
+        order.persisted_row_id = int(model.id)
 
     def _update(self, session: Session, model: AppOrderModel, order: AppOrder) -> None:
         kerf_dec = Decimal(str(order.kerf_mm))

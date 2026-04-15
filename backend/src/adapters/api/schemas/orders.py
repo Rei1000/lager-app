@@ -31,6 +31,8 @@ class RecalculateOrdersRequest(BaseModel):
 
 class OrderResponse(BaseModel):
     order_id: str | None
+    display_order_code: str
+    persisted_row_id: int | None
     material_article_number: str
     quantity: int
     part_length_mm: int
@@ -44,8 +46,14 @@ class OrderResponse(BaseModel):
 
     @classmethod
     def from_domain(cls, order: AppOrder) -> "OrderResponse":
+        if order.persisted_row_id is not None:
+            display = f"APP-{order.persisted_row_id:06d}"
+        else:
+            display = (order.order_id or "").strip()
         return cls(
             order_id=order.order_id,
+            display_order_code=display,
+            persisted_row_id=order.persisted_row_id,
             material_article_number=order.material_article_number,
             quantity=order.quantity,
             part_length_mm=order.part_length_mm,

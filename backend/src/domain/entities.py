@@ -84,8 +84,9 @@ class AppOrder:
     priority_order: int | None = None
     traffic_light: TrafficLight | None = None
     erp_order_number: str | None = None
-    """Erstellender Benutzer (nur fuer Persistenz beim Anlegen; aus DB bei Lesen)."""
+    # Erstellender Benutzer (Persistenz); persisted_row_id = app_orders.id fuer API-Anzeige, keine Fachregel
     created_by_user_id: int | None = None
+    persisted_row_id: int | None = None
 
     def __post_init__(self) -> None:
         if not self.material_article_number.strip():

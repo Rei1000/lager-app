@@ -19,7 +19,15 @@ function trafficLightClass(light: string | null): string {
 }
 
 function orderKey(order: OrderDto, index: number): string {
-  return order.order_id ?? `${order.material_article_number}-${index}`;
+  return (
+    (order.persisted_row_id != null ? String(order.persisted_row_id) : null) ??
+    order.order_id ??
+    `${order.material_article_number}-${index}`
+  );
+}
+
+function orderDisplayLabel(order: OrderDto): string {
+  return order.display_order_code?.trim() || order.order_id || "—";
 }
 
 function formatErpStock(payload: Record<string, unknown>): string {
@@ -130,9 +138,9 @@ export function DashboardOverview() {
             return (
               <li key={key} className="grid gap-1 rounded border border-slate-200 p-3 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{order.order_id ?? "-"}</span>
+                  <span className="font-medium">{orderDisplayLabel(order)}</span>
                   <span>Status: {order.status}</span>
-                  <span>Prio: {order.priority_order ?? "-"}</span>
+                  <span>Reihenfolge (auto): {order.priority_order ?? "-"}</span>
                   <span
                     className={`rounded px-2 py-0.5 text-xs font-medium ${trafficLightClass(order.traffic_light)}`}
                   >
