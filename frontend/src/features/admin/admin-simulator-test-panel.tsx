@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,6 +70,9 @@ export function AdminSimulatorTestPanel() {
   const [openOrders, setOpenOrders] = useState<SimulatorOpenOrderDto[]>([]);
   const [orderMaterialFilter, setOrderMaterialFilter] = useState("");
   const [orderStatusFilter, setOrderStatusFilter] = useState("");
+
+  /** Verhindert, dass eine ältere Detail-Ladung eine neuere überschreibt (z. B. schnelle Klicks in der Trefferliste). */
+  const detailLoadGeneration = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -161,10 +164,13 @@ export function AdminSimulatorTestPanel() {
     const normalized = targetArticleNumber.trim();
     if (!normalized) {
       setMaterial(null);
+      setMaterialAvailability(null);
       setDetailHttpStatus(null);
       setDetailErrorMessage("Bitte Artikelnummer eingeben");
       return;
     }
+
+    const generation = ++detailLoadGeneration.current;
 
     setDetailLoading(true);
     setMaterial(null);
@@ -172,13 +178,21 @@ export function AdminSimulatorTestPanel() {
     setDetailHttpStatus(null);
     setDetailErrorMessage(null);
     try {
-      const [materialResponse, availabilityResponse] = await Promise.all([
-        getMaterialByArticleNumber(normalized),
-        fetchSimulatorMaterialAvailability(normalized),
-      ]);
+      const materialResponse = await getMaterialByArticleNumber(normalized);
+      if (generation !== detailLoadGeneration.current) {
+        return;
+      }
+      const canonicalArticleNo = materialResponse.article_number.trim();
+      const availabilityResponse = await fetchSimulatorMaterialAvailability(canonicalArticleNo);
+      if (generation !== detailLoadGeneration.current) {
+        return;
+      }
       setMaterial(materialResponse);
       setMaterialAvailability(availabilityResponse);
     } catch (error) {
+      if (generation !== detailLoadGeneration.current) {
+        return;
+      }
       if (error instanceof ApiClientError) {
         setDetailHttpStatus(error.status);
         if (error.status === 404) {
@@ -190,7 +204,9 @@ export function AdminSimulatorTestPanel() {
         setDetailErrorMessage("Fehler beim Laden");
       }
     } finally {
-      setDetailLoading(false);
+      if (generation === detailLoadGeneration.current) {
+        setDetailLoading(false);
+      }
     }
   }
 
