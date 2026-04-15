@@ -216,15 +216,15 @@ def test_link_erp_order_use_case_links_and_transitions_status() -> None:
         priority_order=1,
     )
     repo = FakeOrderRepository(orders=[order])
-    erp_port = FakeErpOrderLinkPort(existing_references={"ERP-42"})
+    erp_port = FakeErpOrderLinkPort(existing_references={"SAGE-ORD-2026-001"})
     use_case = LinkErpOrderUseCase(order_repository=repo, erp_order_link_port=erp_port)
 
     linked = use_case.execute(
-        LinkErpOrderCommand(order_id="A1", erp_order_number="ERP-42", acting_user_id=3)
+        LinkErpOrderCommand(order_id="A1", erp_order_number="SAGE-ORD-2026-001", acting_user_id=3)
     )
 
     assert linked.status == "linked"
-    assert linked.erp_order_number == "ERP-42"
+    assert linked.erp_order_number == "SAGE-ORD-2026-001"
 
 
 def test_link_erp_order_use_case_rejects_unknown_reference() -> None:

@@ -34,6 +34,7 @@ class AppOrderModel(Base):
     )
 
     id: Mapped[int] = mapped_column(BigInteger(), primary_key=True)
+    external_order_id: Mapped[str | None] = mapped_column(String(100), nullable=True, unique=True)
     material_type_id: Mapped[int] = mapped_column(
         BigInteger(),
         ForeignKey("material_types.id"),

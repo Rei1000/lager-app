@@ -1,19 +1,20 @@
-"""Minimal API dependency wiring with in-memory fakes."""
+"""API dependency wiring (PostgreSQL repositories, Sage simulator for ERP reads)."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from pathlib import Path
 
 from adapters.auth.password_hasher import Pbkdf2PasswordHasher
 from adapters.auth.sage_simulator_authentication import SageSimulatorAuthenticationAdapter
 from adapters.auth.token_service import HmacTokenService
+from adapters.erp.app_aware_material_plan_availability_adapter import AppAwareMaterialPlanAvailabilityAdapter
 from adapters.erp.base_client import DynamicErpBaseClient
 from adapters.erp.gateway import DynamicErpGatewayAdapter
 from adapters.erp.http_client import UrllibHttpClient
 from adapters.erp.material_plan_availability_sage_simulator_adapter import (
     SageSimulatorMaterialPlanAvailabilityAdapter,
 )
+from adapters.erp.simulator_erp_order_link_adapter import SimulatorErpOrderLinkAdapter
 from adapters.persistence.audit_log_repository import SqlAlchemyAuditLogRepository
 from adapters.persistence.admin_configuration_repository import (
     SqlAlchemyAdminConfigurationRepository,
@@ -22,8 +23,10 @@ from adapters.persistence.auth_identity_repository import SqlAlchemyAuthIdentity
 from adapters.persistence.comment_repository import SqlAlchemyCommentRepository
 from adapters.persistence.erp_configuration_repository import SqlAlchemyErpConfigurationRepository
 from adapters.persistence.erp_transfer_repository import SqlAlchemyErpTransferRepository
+from adapters.persistence.database_stock_snapshot_adapter import DatabaseStockSnapshotAdapter
 from adapters.persistence.inventory_repository import SqlAlchemyInventoryRepository
 from adapters.persistence.material_lookup_repository import SqlAlchemyMaterialLookupRepository
+from adapters.persistence.order_repository import SqlAlchemyOrderRepository
 from adapters.persistence.photo_repository import SqlAlchemyPhotoRepository
 from adapters.storage.local_file_storage import LocalFileStorageAdapter
 from application.use_cases.auth_use_cases import GetCurrentUserUseCase, LoginUseCase
@@ -87,92 +90,21 @@ from application.use_cases.orders_read_use_cases import (
 from application.use_cases.recalculate_orders_use_case import RecalculateOrdersUseCase
 from application.use_cases.reprioritize_orders_use_case import ReprioritizeOrdersUseCase
 from application.use_cases.reserve_order_use_case import ReserveOrderUseCase
-from domain.entities import AppOrder
-from ports.erp_order_link_port import ErpOrderLinkPort
-from ports.order_repository_port import OrderRepositoryPort
-from ports.stock_snapshot_port import StockSnapshot, StockSnapshotPort
 from config.settings import settings
 
 
-@dataclass
-class InMemoryOrderRepository(OrderRepositoryPort):
-    orders: list[AppOrder] = field(default_factory=list)
-
-    def list_all(self) -> list[AppOrder]:
-        return list(self.orders)
-
-    def get_by_id(self, order_id: str) -> AppOrder | None:
-        for order in self.orders:
-            if order.order_id == order_id:
-                return order
-        return None
-
-    def list_by_material(self, material_article_number: str) -> list[AppOrder]:
-        return [o for o in self.orders if o.material_article_number == material_article_number]
-
-    def save(self, order: AppOrder) -> None:
-        existing = self.get_by_id(order.order_id or "")
-        if existing is None:
-            self.orders.append(order)
-            return
-        idx = self.orders.index(existing)
-        self.orders[idx] = order
-
-
-@dataclass
-class InMemoryStockSnapshotPort(StockSnapshotPort):
-    snapshots: dict[str, StockSnapshot] = field(default_factory=dict)
-    default_snapshot: StockSnapshot = field(
-        default_factory=lambda: StockSnapshot(
-            erp_stock_mm=0,
-            open_erp_orders_mm=0,
-            app_reservations_mm=0,
-            rest_stock_mm=0,
-        )
-    )
-
-    def get_snapshot(self, material_article_number: str) -> StockSnapshot:
-        return self.snapshots.get(material_article_number, self.default_snapshot)
-
-
-@dataclass
-class InMemoryErpOrderLinkPort(ErpOrderLinkPort):
-    known_references: set[str] = field(default_factory=lambda: {"ERP-42", "ERP-100"})
-
-    def exists_order_reference(self, erp_order_number: str) -> bool:
-        return erp_order_number in self.known_references
-
-
-_order_repository = InMemoryOrderRepository(
-    orders=[
-        AppOrder(
-            order_id="demo-checked-1",
-            material_article_number="ART-DEMO",
-            quantity=1,
-            part_length_mm=1000,
-            kerf_mm=0,
-            include_rest_stock=False,
-            status="checked",
-            priority_order=1,
-        )
-    ]
+_order_repository = SqlAlchemyOrderRepository()
+_stock_snapshot_port = DatabaseStockSnapshotAdapter(order_repository=_order_repository)
+_sage_simulator_availability_inner = SageSimulatorMaterialPlanAvailabilityAdapter()
+_material_plan_availability_adapter = AppAwareMaterialPlanAvailabilityAdapter(
+    inner=_sage_simulator_availability_inner,
+    order_repository=_order_repository,
 )
-_stock_snapshot_port = InMemoryStockSnapshotPort(
-    snapshots={
-        "ART-DEMO": StockSnapshot(
-            erp_stock_mm=10_000,
-            open_erp_orders_mm=0,
-            app_reservations_mm=0,
-            rest_stock_mm=2_000,
-        )
-    }
-)
-_erp_order_link_port = InMemoryErpOrderLinkPort()
+_erp_order_link_port = SimulatorErpOrderLinkAdapter()
 _password_hasher = Pbkdf2PasswordHasher()
 _admin_configuration_repository = SqlAlchemyAdminConfigurationRepository(password_hasher=_password_hasher)
 _inventory_repository = SqlAlchemyInventoryRepository()
 _material_lookup_repository = SqlAlchemyMaterialLookupRepository()
-_material_plan_availability_adapter = SageSimulatorMaterialPlanAvailabilityAdapter()
 _photo_repository = SqlAlchemyPhotoRepository()
 _comment_repository = SqlAlchemyCommentRepository()
 _auth_identity_repository = SqlAlchemyAuthIdentityRepository()

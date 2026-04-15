@@ -33,6 +33,7 @@ class CreateOrderUseCase:
             kerf_mm=command.kerf_mm,
             include_rest_stock=command.include_rest_stock,
             priority_order=next_priority,
+            created_by_user_id=command.acting_user_id,
         )
 
         snapshot = self._stock_snapshot_port.get_snapshot(command.material_article_number)
