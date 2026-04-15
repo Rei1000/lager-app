@@ -12,6 +12,8 @@ import type {
   InventoryDifferenceDto,
   LoginResponseDto,
   MaterialLookupDto,
+  SimulatorMaterialSearchDto,
+  SimulatorMaterialStockDto,
   PhotoDto,
   OrderDto,
   StockCorrectionDto,
@@ -44,11 +46,45 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    const finalUrl = `${API_BASE_URL}${path}`;
+    const isLoginPath = path === "/auth/login";
+    if (isLoginPath) {
+      let loginType: string | undefined;
+      let selectedConnection: string | undefined;
+      if (typeof body === "string") {
+        try {
+          const parsed = JSON.parse(body) as {
+            login_type?: string;
+            selected_connection?: string;
+          };
+          loginType = parsed.login_type;
+          selectedConnection = parsed.selected_connection;
+        } catch {
+          // intentionally ignore parse errors in debug instrumentation
+        }
+      }
+      console.warn("[login-debug] before_fetch", {
+        url: finalUrl,
+        method: restInit.method ?? "GET",
+        login_type: loginType ?? "unknown",
+        selected_connection: selectedConnection ?? "unknown",
+      });
+    }
+
+    response = await fetch(finalUrl, {
       ...restInit,
       headers,
     });
+    if (isLoginPath) {
+      console.warn("[login-debug] after_fetch_response", {
+        status: response.status,
+        ok: response.ok,
+      });
+    }
   } catch {
+    if (path === "/auth/login") {
+      console.warn("[login-debug] fetch_error:request_failed");
+    }
     throw new ApiClientError("Server nicht erreichbar. Bitte Verbindung pruefen.", null);
   }
 
@@ -384,6 +420,24 @@ export async function getMaterialByArticleNumber(
   return request<MaterialLookupDto>(`/materials/${encodeURIComponent(articleNumber)}`, {
     method: "GET",
   });
+}
+
+export async function searchSimulatorMaterials(query: string): Promise<SimulatorMaterialSearchDto[]> {
+  const encoded = encodeURIComponent(query);
+  return request<SimulatorMaterialSearchDto[]>(`/simulator/sage/materials/search?q=${encoded}`, {
+    method: "GET",
+  });
+}
+
+export async function fetchSimulatorMaterialStock(
+  articleNumber: string
+): Promise<SimulatorMaterialStockDto> {
+  return request<SimulatorMaterialStockDto>(
+    `/simulator/sage/materials/stock?material_no=${encodeURIComponent(articleNumber)}`,
+    {
+      method: "GET",
+    }
+  );
 }
 
 export async function fetchErpMaterial(reference: string): Promise<Record<string, unknown>> {

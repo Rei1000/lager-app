@@ -99,6 +99,29 @@ export type MaterialLookupDto = {
   rest_stock_m: number | null;
 };
 
+export type SimulatorMaterialSearchDto = {
+  material_no: string;
+  description: string;
+  profile: string | null;
+  shape: string | null;
+  size_mm: string | null;
+  material_group_code: string | null;
+  material_group: string | null;
+  material_code: string | null;
+  material: string | null;
+  dimension_code: string | null;
+  dimension_mm: number | null;
+  unit: string | null;
+};
+
+export type SimulatorMaterialStockDto = {
+  material_no: string;
+  description?: string;
+  stock_m: number;
+  rest_stock_m: number;
+  stock_as_of: string;
+};
+
 export type PhotoDto = {
   id: number;
   entity_type: string;
