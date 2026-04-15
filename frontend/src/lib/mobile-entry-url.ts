@@ -1,4 +1,4 @@
-const DEFAULT_LOGIN_URL = "http://localhost:3001/login";
+export const DEFAULT_LOGIN_URL = "http://localhost:3001/login";
 
 type ResolveMobileAppUrlArgs = {
   envUrl?: string | null;

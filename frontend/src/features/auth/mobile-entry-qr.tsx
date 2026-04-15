@@ -4,8 +4,6 @@ import Link from "next/link";
 import { useMemo } from "react";
 import QRCode from "qrcode";
 
-import { resolveMobileAppUrl } from "@/lib/mobile-entry-url";
-
 function buildQrSvgDataUrl(targetUrl: string): string {
   const margin = 1;
   const qr = QRCode.create(targetUrl, { errorCorrectionLevel: "M" });
@@ -26,10 +24,7 @@ function buildQrSvgDataUrl(targetUrl: string): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
-export function MobileEntryQr() {
-  const targetUrl = resolveMobileAppUrl({
-    envUrl: process.env.NEXT_PUBLIC_MOBILE_APP_URL,
-  });
+export function MobileEntryQr({ targetUrl }: { targetUrl: string }) {
   const qrDataUrl = useMemo(() => {
     try {
       return buildQrSvgDataUrl(targetUrl);
