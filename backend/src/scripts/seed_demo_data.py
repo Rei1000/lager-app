@@ -16,6 +16,7 @@ from adapters.erp.sage_simulator_data import (
     SIMULATOR_OPEN_ORDERS,
     SIMULATOR_USERS,
 )
+from domain.order_plan_cutting import calculate_cutting_plan_demand_mm
 
 
 def _get_or_create_role(*, code: str, name: str, description: str) -> RoleModel:
@@ -43,8 +44,20 @@ def _get_or_create_user(
     with get_session() as session:
         existing = session.query(UserModel).filter(UserModel.username == username).one_or_none()
         if existing is not None:
-            if erp_user_reference and not existing.erp_user_reference:
+            needs_update = False
+            if existing.role_id != role_id:
+                existing.role_id = role_id
+                needs_update = True
+            if existing.display_name != display_name:
+                existing.display_name = display_name
+                needs_update = True
+            if existing.email != email:
+                existing.email = email
+                needs_update = True
+            if erp_user_reference and existing.erp_user_reference != erp_user_reference:
                 existing.erp_user_reference = erp_user_reference
+                needs_update = True
+            if needs_update:
                 session.commit()
                 session.refresh(existing)
             return existing
@@ -78,6 +91,31 @@ def _get_or_create_material(
             .one_or_none()
         )
         if existing is not None:
+            needs_update = False
+            if existing.name != name:
+                existing.name = name
+                needs_update = True
+            if existing.profile != profile:
+                existing.profile = profile
+                needs_update = True
+            if existing.erp_stock_m != erp_stock_m:
+                existing.erp_stock_m = erp_stock_m
+                needs_update = True
+            if existing.rest_stock_m != rest_stock_m:
+                existing.rest_stock_m = rest_stock_m
+                needs_update = True
+            if existing.unit != "m":
+                existing.unit = "m"
+                needs_update = True
+            if existing.min_rest_length_mm != 500:
+                existing.min_rest_length_mm = 500
+                needs_update = True
+            if existing.is_active is not True:
+                existing.is_active = True
+                needs_update = True
+            if needs_update:
+                session.commit()
+                session.refresh(existing)
             return existing
         material = MaterialTypeModel(
             article_number=article_number,
@@ -117,15 +155,18 @@ def _get_or_create_order(
         )
         if existing is not None:
             return existing
+        kerf_snapshot = 3.0
+        gross_mm = calculate_cutting_plan_demand_mm(quantity, part_length_mm, kerf_snapshot).gross_mm
+        gross_m = Decimal(gross_mm) / Decimal("1000")
         order = AppOrderModel(
             material_type_id=material_type_id,
             created_by_user_id=created_by_user_id,
             quantity=quantity,
             part_length_mm=part_length_mm,
-            kerf_mm_snapshot=Decimal("3.0"),
+            kerf_mm_snapshot=Decimal(str(kerf_snapshot)),
             include_rest_stock=include_rest_stock,
-            calculated_total_demand_m=Decimal(quantity * part_length_mm) / Decimal("1000"),
-            demand_from_full_stock_m=Decimal(quantity * part_length_mm) / Decimal("1000"),
+            calculated_total_demand_m=gross_m,
+            demand_from_full_stock_m=gross_m,
             demand_from_rest_stock_m=Decimal("0"),
             shortage_m=Decimal("0"),
             traffic_light="green",
@@ -356,7 +397,7 @@ def seed_demo_data() -> None:
         )
 
     _get_or_create_order(
-        material_type_id=material_id_by_article_number["ALU-Q30-3000"],
+        material_type_id=material_id_by_article_number["100-AL-050"],
         created_by_user_id=admin_user.id,
         quantity=1,
         part_length_mm=1800,

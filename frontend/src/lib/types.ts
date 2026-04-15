@@ -144,6 +144,29 @@ export type SimulatorMaterialAvailabilityDto = {
   open_orders: SimulatorOpenOrderDto[];
 };
 
+export type OrderPlanOpenOrderLineDto = {
+  order_reference: string;
+  required_m: number;
+  status: string;
+};
+
+/** Backend plan preview (read-only, no order persisted). */
+export type OrderPlanPreviewDto = {
+  article_number: string;
+  material_name: string;
+  stock_m: number;
+  in_pipeline_m: number;
+  available_m: number;
+  open_orders: OrderPlanOpenOrderLineDto[];
+  net_required_mm: number;
+  kerf_total_mm: number;
+  gross_required_mm: number;
+  net_required_m: number;
+  kerf_total_m: number;
+  gross_required_m: number;
+  feasible: boolean;
+};
+
 export type PhotoDto = {
   id: number;
   entity_type: string;

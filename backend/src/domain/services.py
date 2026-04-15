@@ -11,15 +11,6 @@ def _ensure_non_negative(value: int, field_name: str) -> None:
         raise ValueError(f"{field_name} darf nicht negativ sein")
 
 
-def calculate_total_demand_mm(quantity: int, part_length_mm: int, kerf_mm: int) -> int:
-    if quantity <= 0:
-        raise ValueError("quantity muss groesser als 0 sein")
-    if part_length_mm <= 0:
-        raise ValueError("part_length_mm muss groesser als 0 sein")
-    _ensure_non_negative(kerf_mm, "kerf_mm")
-    return quantity * (part_length_mm + kerf_mm)
-
-
 def calculate_available_mm(
     erp_stock_mm: int,
     open_erp_orders_mm: int,

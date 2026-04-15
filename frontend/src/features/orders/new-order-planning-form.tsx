@@ -1,16 +1,11 @@
 "use client";
 
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  ApiClientError,
-  fetchSimulatorMaterialAvailability,
-  getMaterialByArticleNumber,
-  searchSimulatorMaterials,
-} from "@/lib/api-client";
-import type { MaterialLookupDto, SimulatorMaterialAvailabilityDto, SimulatorMaterialSearchDto } from "@/lib/types";
+import { ApiClientError, getMaterialByArticleNumber, previewOrderPlan, searchSimulatorMaterials } from "@/lib/api-client";
+import type { MaterialLookupDto, OrderPlanPreviewDto, SimulatorMaterialSearchDto } from "@/lib/types";
 
 type SawOption = {
   id: string;
@@ -24,16 +19,15 @@ const SAW_OPTIONS: SawOption[] = [
   { id: "saw-b", label: "Trennsäge B (Demo)", kerfMm: 2.5 },
 ];
 
-function roundMeters(value: number): number {
-  return Math.round(value * 1000) / 1000;
-}
-
 export function NewOrderPlanningForm() {
   const [articleInput, setArticleInput] = useState("");
   const [material, setMaterial] = useState<MaterialLookupDto | null>(null);
-  const [availability, setAvailability] = useState<SimulatorMaterialAvailabilityDto | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingMaterial, setLoadingMaterial] = useState(false);
+
+  const [preview, setPreview] = useState<OrderPlanPreviewDto | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
@@ -47,47 +41,82 @@ export function NewOrderPlanningForm() {
   const [considerRestPieces, setConsiderRestPieces] = useState(false);
 
   const loadGen = useRef(0);
+  const previewGen = useRef(0);
 
   const selectedSaw = useMemo(
     () => SAW_OPTIONS.find((s) => s.id === selectedSawId) ?? SAW_OPTIONS[0],
     [selectedSawId]
   );
-  const effectiveKerfMm =
-    selectedSaw.kerfMm !== null && selectedSaw.kerfMm !== undefined
-      ? selectedSaw.kerfMm
-      : Math.max(0, Number(manualKerfMm.replace(",", ".")) || 0);
 
-  const qtyNum = Math.max(0, Math.floor(Number(quantity.replace(",", ".")) || 0));
-  const partLenMm = Math.max(0, Number(partLengthMm.replace(",", ".")) || 0);
-
-  const { nettoMm, verschnittMm, gesamtMm, gesamtM } = useMemo(() => {
-    if (qtyNum < 1) {
-      return { nettoMm: 0, verschnittMm: 0, gesamtMm: 0, gesamtM: 0 };
+  const effectiveKerfMm = useMemo(() => {
+    if (selectedSaw.kerfMm !== null && selectedSaw.kerfMm !== undefined) {
+      return selectedSaw.kerfMm;
     }
-    const net = qtyNum * partLenMm;
-    const waste = (qtyNum - 1) * effectiveKerfMm;
-    const totalMm = net + waste;
-    return {
-      nettoMm: net,
-      verschnittMm: waste,
-      gesamtMm: totalMm,
-      gesamtM: roundMeters(totalMm / 1000),
-    };
-  }, [qtyNum, partLenMm, effectiveKerfMm]);
+    return Math.max(0, Number(manualKerfMm.replace(",", ".")) || 0);
+  }, [manualKerfMm, selectedSaw]);
 
-  const decision =
-    availability !== null && qtyNum >= 1
-      ? gesamtM <= availability.available_m + 1e-9
-        ? "possible"
-        : "short"
-      : "unknown";
+  const runPreview = useCallback(async () => {
+    if (!material) {
+      setPreview(null);
+      setPreviewError(null);
+      return;
+    }
+    const q = Math.floor(Number(quantity.replace(",", ".")) || 0);
+    const pl = Math.max(0, Number(partLengthMm.replace(",", ".")) || 0);
+    if (q < 1 || pl < 1) {
+      setPreview(null);
+      setPreviewError(null);
+      return;
+    }
+
+    const gen = ++previewGen.current;
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const result = await previewOrderPlan({
+        article_number: material.article_number.trim(),
+        quantity: q,
+        part_length_mm: Math.round(pl),
+        kerf_mm: effectiveKerfMm,
+        rest_piece_consideration_requested: considerRestPieces,
+      });
+      if (gen !== previewGen.current) {
+        return;
+      }
+      setPreview(result);
+    } catch (err) {
+      if (gen !== previewGen.current) {
+        return;
+      }
+      setPreview(null);
+      if (err instanceof ApiClientError) {
+        setPreviewError(err.message || "Vorschau fehlgeschlagen");
+      } else {
+        setPreviewError("Vorschau fehlgeschlagen");
+      }
+    } finally {
+      if (gen === previewGen.current) {
+        setPreviewLoading(false);
+      }
+    }
+  }, [material, quantity, partLengthMm, effectiveKerfMm, considerRestPieces]);
+
+  useEffect(() => {
+    if (!material) {
+      return;
+    }
+    const t = window.setTimeout(() => {
+      void runPreview();
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [material, runPreview]);
 
   async function loadMaterialForArticle(articleNumber: string) {
     const normalized = articleNumber.trim();
     if (!normalized) {
       setLoadError("Bitte Artikelnummer eingeben");
       setMaterial(null);
-      setAvailability(null);
+      setPreview(null);
       return;
     }
 
@@ -95,7 +124,8 @@ export function NewOrderPlanningForm() {
     setLoadingMaterial(true);
     setLoadError(null);
     setMaterial(null);
-    setAvailability(null);
+    setPreview(null);
+    setPreviewError(null);
 
     try {
       const mat = await getMaterialByArticleNumber(normalized);
@@ -103,12 +133,7 @@ export function NewOrderPlanningForm() {
         return;
       }
       const canonical = mat.article_number.trim();
-      const avail = await fetchSimulatorMaterialAvailability(canonical);
-      if (gen !== loadGen.current) {
-        return;
-      }
       setMaterial(mat);
-      setAvailability(avail);
       setArticleInput(canonical);
     } catch (err) {
       if (gen !== loadGen.current) {
@@ -131,7 +156,8 @@ export function NewOrderPlanningForm() {
     setLoadError(null);
     if (material && value.trim() !== material.article_number.trim()) {
       setMaterial(null);
-      setAvailability(null);
+      setPreview(null);
+      setPreviewError(null);
     }
   }
 
@@ -300,52 +326,60 @@ export function NewOrderPlanningForm() {
 
       <section className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:p-4">
         <h2 className="text-base font-semibold text-slate-900">C) Berechnung</h2>
-        <ul className="grid gap-1 text-slate-700">
-          <li>
-            Nettobedarf: {roundMeters(nettoMm / 1000)} m ({nettoMm.toFixed(1)} mm)
-          </li>
-          <li>
-            Verschnitt: {roundMeters(verschnittMm / 1000)} m ({verschnittMm.toFixed(1)} mm)
-          </li>
-          <li className="font-medium">
-            Gesamtbedarf: {gesamtM} m ({gesamtMm.toFixed(1)} mm)
-          </li>
-        </ul>
+        {previewLoading ? <p className="text-slate-600">Berechnung wird aktualisiert...</p> : null}
+        {previewError ? <p className="text-sm text-red-600">{previewError}</p> : null}
+        {preview ? (
+          <ul className="grid gap-1 text-slate-700">
+            <li>
+              Nettobedarf: {preview.net_required_m} m ({preview.net_required_mm} mm)
+            </li>
+            <li>
+              Verschnitt: {preview.kerf_total_m} m ({preview.kerf_total_mm} mm)
+            </li>
+            <li className="font-medium">
+              Gesamtbedarf: {preview.gross_required_m} m ({preview.gross_required_mm} mm)
+            </li>
+          </ul>
+        ) : (
+          <p className="text-slate-600">
+            {material ? "Parameter prüfen (Stückzahl ≥ 1, Länge ≥ 1 mm) für Backend-Vorschau." : "Zuerst Material laden."}
+          </p>
+        )}
         <p className="text-xs text-slate-500">
-          Formeln: Netto = Stück × Länge; Verschnitt = (Stück − 1) × Kerf; Gesamt = Netto + Verschnitt.
+          Werte kommen aus dem Backend (Netto = Stück × Länge; Verschnitt = (Stück − 1) × Kerf).
         </p>
       </section>
 
       <section className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:p-4">
         <h2 className="text-base font-semibold text-slate-900">D) Verfügbarkeit</h2>
-        {availability ? (
+        {preview ? (
           <ul className="grid gap-1">
-            <li>Bestand: {availability.stock_m} m</li>
-            <li>In Pipeline: {availability.in_pipeline_m} m</li>
-            <li>Verfügbar: {availability.available_m} m</li>
-            <li className="font-medium">Gesamtbedarf (Plan): {gesamtM} m</li>
+            <li>Bestand: {preview.stock_m} m</li>
+            <li>In Pipeline: {preview.in_pipeline_m} m</li>
+            <li>Verfügbar: {preview.available_m} m</li>
+            <li className="font-medium">Gesamtbedarf (Plan): {preview.gross_required_m} m</li>
           </ul>
         ) : (
-          <p className="text-slate-600">Material laden, um Verfügbarkeit zu sehen.</p>
+          <p className="text-slate-600">Vorschau erscheint nach gültigen Parametern.</p>
         )}
       </section>
 
       <section className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:p-4">
         <h2 className="text-base font-semibold text-slate-900">E) Auftragsbelastung</h2>
-        {availability ? (
+        {preview ? (
           <>
             <p className="text-slate-700">
               In Pipeline (Summe gebundener Bedarf):{" "}
-              <span className="font-medium">{availability.in_pipeline_m} m</span>
+              <span className="font-medium">{preview.in_pipeline_m} m</span>
             </p>
-            <p className="text-xs text-slate-600">Offene zugehörige Aufträge (aus Verfügbarkeits-API):</p>
-            {availability.open_orders.length === 0 ? (
+            <p className="text-xs text-slate-600">Offene zugehörige Aufträge (Backend):</p>
+            {preview.open_orders.length === 0 ? (
               <p className="text-slate-600">Keine offenen Aufträge für dieses Material.</p>
             ) : (
               <ul className="grid gap-2">
-                {availability.open_orders.map((o) => (
-                  <li key={o.order_no} className="rounded border border-slate-200 p-2">
-                    <p>Auftragsnummer: {o.order_no}</p>
+                {preview.open_orders.map((o) => (
+                  <li key={o.order_reference} className="rounded border border-slate-200 p-2">
+                    <p>Auftragsnummer: {o.order_reference}</p>
                     <p>Benötigte Meter: {o.required_m}</p>
                     <p>Status: {o.status}</p>
                   </li>
@@ -354,20 +388,20 @@ export function NewOrderPlanningForm() {
             )}
           </>
         ) : (
-          <p className="text-slate-600">Material laden für Auftragsliste.</p>
+          <p className="text-slate-600">Vorschau laden.</p>
         )}
       </section>
 
       <section className="grid gap-2 rounded-lg border border-slate-200 bg-amber-50/80 p-3 sm:p-4">
         <h2 className="text-base font-semibold text-slate-900">F) Entscheidungshilfe</h2>
-        {availability && qtyNum >= 1 ? (
-          decision === "possible" ? (
+        {preview ? (
+          preview.feasible ? (
             <p className="font-medium text-emerald-800">Auftrag möglich (Verfügbar ≥ Gesamtbedarf).</p>
           ) : (
             <p className="font-medium text-red-800">Nicht genügend Material (Verfügbar &lt; Gesamtbedarf).</p>
           )
         ) : (
-          <p className="text-slate-600">Material laden und Stückzahl ≥ 1 eingeben.</p>
+          <p className="text-slate-600">Vorschau abwarten.</p>
         )}
       </section>
     </div>

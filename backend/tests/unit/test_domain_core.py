@@ -3,18 +3,13 @@ from __future__ import annotations
 import pytest
 
 from domain.entities import AppOrder, MaterialType, RestStockAccount
+from domain.order_plan_cutting import calculate_cutting_plan_demand_mm
 from domain.services import (
     calculate_available_mm,
-    calculate_total_demand_mm,
     calculate_traffic_light,
     evaluate_orders_sequentially,
 )
 from domain.value_objects import TrafficLight
-
-
-def test_calculate_total_demand_includes_kerf() -> None:
-    demand = calculate_total_demand_mm(quantity=10, part_length_mm=500, kerf_mm=3)
-    assert demand == 5030
 
 
 def test_availability_ignores_rest_stock_by_default() -> None:
@@ -105,7 +100,9 @@ def test_entities_hold_domain_data_without_infrastructure() -> None:
     )
     assert material.article_number == "ART-001"
     assert rest_account.total_rest_stock_mm == 1_200
-    assert order.total_demand_mm == 4_012
+    # Brutto = 4×1000 + (4−1)×3 = 4009 (einzige führende Schnittplan-Logik)
+    assert order.total_demand_mm == 4_009
+    assert order.total_demand_mm == calculate_cutting_plan_demand_mm(4, 1000, 3.0).gross_mm
 
 
 def test_sequential_evaluation_is_priority_order_based() -> None:

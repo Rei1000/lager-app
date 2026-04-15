@@ -22,6 +22,7 @@ import type {
   UserDto,
   ErpOrderValidationDto,
   ErpTransferRequestDto,
+  OrderPlanPreviewDto,
 } from "@/lib/types";
 
 export class ApiClientError extends Error {
@@ -421,6 +422,19 @@ export async function getMaterialByArticleNumber(
 ): Promise<MaterialLookupDto> {
   return request<MaterialLookupDto>(`/materials/${encodeURIComponent(articleNumber)}`, {
     method: "GET",
+  });
+}
+
+export async function previewOrderPlan(payload: {
+  article_number: string;
+  quantity: number;
+  part_length_mm: number;
+  kerf_mm: number;
+  rest_piece_consideration_requested: boolean;
+}): Promise<OrderPlanPreviewDto> {
+  return request<OrderPlanPreviewDto>("/materials/plan-preview", {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }
 

@@ -179,3 +179,36 @@ class CreateCommentCommand:
 class ListCommentsForEntityCommand:
     entity_type: str
     entity_id: str
+
+
+@dataclass(frozen=True)
+class PreviewOrderPlanCommand:
+    article_number: str
+    quantity: int
+    part_length_mm: int
+    kerf_mm: float
+    rest_piece_consideration_requested: bool = False
+
+
+@dataclass(frozen=True)
+class OrderPlanOpenOrderLine:
+    order_reference: str
+    required_m: float
+    status: str
+
+
+@dataclass(frozen=True)
+class OrderPlanPreviewResult:
+    article_number: str
+    material_name: str
+    stock_m: float
+    in_pipeline_m: float
+    available_m: float
+    open_orders: tuple[OrderPlanOpenOrderLine, ...]
+    net_required_mm: int
+    kerf_total_mm: int
+    gross_required_mm: int
+    net_required_m: float
+    kerf_total_m: float
+    gross_required_m: float
+    feasible: bool

@@ -11,6 +11,9 @@ from adapters.auth.token_service import HmacTokenService
 from adapters.erp.base_client import DynamicErpBaseClient
 from adapters.erp.gateway import DynamicErpGatewayAdapter
 from adapters.erp.http_client import UrllibHttpClient
+from adapters.erp.material_plan_availability_sage_simulator_adapter import (
+    SageSimulatorMaterialPlanAvailabilityAdapter,
+)
 from adapters.persistence.audit_log_repository import SqlAlchemyAuditLogRepository
 from adapters.persistence.admin_configuration_repository import (
     SqlAlchemyAdminConfigurationRepository,
@@ -75,6 +78,7 @@ from application.use_cases.photo_use_cases import (
     ListPhotosForEntityUseCase,
     UploadPhotoUseCase,
 )
+from application.use_cases.preview_order_plan_use_case import PreviewOrderPlanUseCase
 from application.use_cases.orders_read_use_cases import (
     GetDashboardOverviewUseCase,
     GetOrderDetailUseCase,
@@ -168,6 +172,7 @@ _password_hasher = Pbkdf2PasswordHasher()
 _admin_configuration_repository = SqlAlchemyAdminConfigurationRepository(password_hasher=_password_hasher)
 _inventory_repository = SqlAlchemyInventoryRepository()
 _material_lookup_repository = SqlAlchemyMaterialLookupRepository()
+_material_plan_availability_adapter = SageSimulatorMaterialPlanAvailabilityAdapter()
 _photo_repository = SqlAlchemyPhotoRepository()
 _comment_repository = SqlAlchemyCommentRepository()
 _auth_identity_repository = SqlAlchemyAuthIdentityRepository()
@@ -329,6 +334,13 @@ def get_search_materials_use_case() -> SearchMaterialsUseCase:
 
 def get_material_by_article_number_use_case() -> GetMaterialByArticleNumberUseCase:
     return GetMaterialByArticleNumberUseCase(material_lookup_port=_material_lookup_repository)
+
+
+def get_preview_order_plan_use_case() -> PreviewOrderPlanUseCase:
+    return PreviewOrderPlanUseCase(
+        material_lookup_port=_material_lookup_repository,
+        material_plan_availability_port=_material_plan_availability_adapter,
+    )
 
 
 def get_upload_photo_use_case() -> UploadPhotoUseCase:

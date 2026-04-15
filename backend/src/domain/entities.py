@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from domain.order_plan_cutting import calculate_cutting_plan_demand_mm
 from domain.value_objects import TrafficLight
 
 ALLOWED_STATUS_TRANSITIONS: dict[str, set[str]] = {
@@ -100,7 +101,10 @@ class AppOrder:
 
     @property
     def total_demand_mm(self) -> int:
-        return self.quantity * (self.part_length_mm + self.kerf_mm)
+        """Bruttolinearbedarf mm: Netto (Stück × Länge) + Verschnitt ((Stück−1) × Kerf)."""
+        return calculate_cutting_plan_demand_mm(
+            self.quantity, self.part_length_mm, float(self.kerf_mm)
+        ).gross_mm
 
     def transition_to(self, new_status: str) -> None:
         allowed = ALLOWED_STATUS_TRANSITIONS.get(self.status, set())
