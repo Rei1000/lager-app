@@ -7,11 +7,18 @@ import { Input } from "@/components/ui/input";
 import {
   ApiClientError,
   fetchCurrentUser,
+  fetchSimulatorMaterialAvailability,
+  fetchSimulatorOpenOrders,
   fetchSimulatorMaterialStock,
   getMaterialByArticleNumber,
   searchSimulatorMaterials,
 } from "@/lib/api-client";
-import type { MaterialLookupDto, SimulatorMaterialSearchDto } from "@/lib/types";
+import type {
+  MaterialLookupDto,
+  SimulatorMaterialAvailabilityDto,
+  SimulatorMaterialSearchDto,
+  SimulatorOpenOrderDto,
+} from "@/lib/types";
 
 const MAIN_GROUP_OPTIONS = ["100", "200", "300", "400", "410", "420", "430", "440"] as const;
 const MATERIAL_OPTIONS = ["FE", "AL", "CU", "VA", "MS"] as const;
@@ -37,7 +44,7 @@ const SIMULATOR_ERP_USERS: SimulatorErpUser[] = [
 
 export function AdminSimulatorTestPanel() {
   const [accessState, setAccessState] = useState<"loading" | "allowed" | "denied">("loading");
-  const [activeTab, setActiveTab] = useState<"artikel" | "erp-benutzer">("artikel");
+  const [activeTab, setActiveTab] = useState<"artikel" | "erp-benutzer" | "auftraege">("artikel");
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -53,8 +60,16 @@ export function AdminSimulatorTestPanel() {
   const [articleNumber, setArticleNumber] = useState("100-FE-010");
   const [detailLoading, setDetailLoading] = useState(false);
   const [material, setMaterial] = useState<MaterialLookupDto | null>(null);
+  const [materialAvailability, setMaterialAvailability] = useState<SimulatorMaterialAvailabilityDto | null>(null);
   const [detailErrorMessage, setDetailErrorMessage] = useState<string | null>(null);
   const [detailHttpStatus, setDetailHttpStatus] = useState<number | null>(null);
+
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersLoaded, setOrdersLoaded] = useState(false);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [openOrders, setOpenOrders] = useState<SimulatorOpenOrderDto[]>([]);
+  const [orderMaterialFilter, setOrderMaterialFilter] = useState("");
+  const [orderStatusFilter, setOrderStatusFilter] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -76,6 +91,13 @@ export function AdminSimulatorTestPanel() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== "auftraege" || ordersLoaded) {
+      return;
+    }
+    void loadOpenOrders();
+  }, [activeTab, ordersLoaded]);
 
   function matchesFilters(item: SimulatorMaterialSearchDto): boolean {
     const [groupCode, materialCode, dimensionCode] = item.material_no.split("-");
@@ -146,11 +168,16 @@ export function AdminSimulatorTestPanel() {
 
     setDetailLoading(true);
     setMaterial(null);
+    setMaterialAvailability(null);
     setDetailHttpStatus(null);
     setDetailErrorMessage(null);
     try {
-      const response = await getMaterialByArticleNumber(normalized);
-      setMaterial(response);
+      const [materialResponse, availabilityResponse] = await Promise.all([
+        getMaterialByArticleNumber(normalized),
+        fetchSimulatorMaterialAvailability(normalized),
+      ]);
+      setMaterial(materialResponse);
+      setMaterialAvailability(availabilityResponse);
     } catch (error) {
       if (error instanceof ApiClientError) {
         setDetailHttpStatus(error.status);
@@ -170,6 +197,20 @@ export function AdminSimulatorTestPanel() {
   async function handleLoadMaterial(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await loadMaterialDetails(articleNumber);
+  }
+
+  async function loadOpenOrders() {
+    setOrdersLoading(true);
+    setOrdersError(null);
+    try {
+      const response = await fetchSimulatorOpenOrders();
+      setOpenOrders(response);
+      setOrdersLoaded(true);
+    } catch {
+      setOrdersError("Fehler beim Laden");
+    } finally {
+      setOrdersLoading(false);
+    }
   }
 
   if (accessState === "loading") {
@@ -315,7 +356,33 @@ export function AdminSimulatorTestPanel() {
                 Artikelnummer: {material.article_number}
               </p>
               <p>Beschreibung: {material.name}</p>
-              <p title="Verfuegbarer Bestand in Meter">Lagerbestand (Meter): {material.erp_stock_m ?? "-"}</p>
+              <p title="Physischer Lagerbestand in Meter">
+                Bestand (Meter): {materialAvailability?.stock_m ?? material.erp_stock_m ?? "-"}
+              </p>
+              <p title="Summe offener Materialbedarfe aus noch nicht fertiggemeldeten Auftraegen">
+                In Pipeline (Meter): {materialAvailability?.in_pipeline_m ?? "-"}
+              </p>
+              <p title="Bestand abzueglich offener Bedarfe">
+                Verfuegbar (Meter): {materialAvailability?.available_m ?? "-"}
+              </p>
+              <div className="pt-2">
+                <p className="font-medium" title="Offener Bedarf, der Material fuer laufende oder geplante Fertigung bindet">
+                  Offene zugehoerige Auftraege
+                </p>
+                {materialAvailability?.open_orders.length ? (
+                  <ul className="grid gap-1 pt-1">
+                    {materialAvailability.open_orders.map((order) => (
+                      <li key={order.order_no} className="rounded border border-slate-200 p-2">
+                        <p>Auftragsnummer: {order.order_no}</p>
+                        <p>Benoetigt (Meter): {order.required_m}</p>
+                        <p>Status: {order.status}</p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-slate-600">Keine offenen Auftraege fuer dieses Material</p>
+                )}
+              </div>
             </>
           ) : (
             <p className="text-slate-600">Noch kein Detail geladen</p>
@@ -361,6 +428,70 @@ export function AdminSimulatorTestPanel() {
     );
   }
 
+  function renderOrdersTab() {
+    const filteredOpenOrders = openOrders.filter((order) => {
+      if (orderMaterialFilter.trim() && !order.material_no.includes(orderMaterialFilter.trim())) {
+        return false;
+      }
+      if (orderStatusFilter.trim() && order.status !== orderStatusFilter.trim()) {
+        return false;
+      }
+      return true;
+    });
+
+    return (
+      <section className="grid gap-3 rounded border border-slate-200 p-3">
+        <p className="rounded border border-slate-200 bg-slate-50 p-3 text-slate-700">
+          Hier sehen Sie offene Simulator-Auftraege und deren Materialbedarf.
+        </p>
+        <h2 className="font-medium">Auftraege</h2>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <label className="grid gap-1">
+            Materialnummer-Filter
+            <Input
+              value={orderMaterialFilter}
+              onChange={(event) => setOrderMaterialFilter(event.target.value)}
+              placeholder="z. B. 420-VA-012"
+            />
+          </label>
+          <label className="grid gap-1">
+            Status-Filter
+            <Input
+              value={orderStatusFilter}
+              onChange={(event) => setOrderStatusFilter(event.target.value)}
+              placeholder="z. B. open"
+            />
+          </label>
+          <div className="flex items-end">
+            <Button className="w-full sm:w-auto" onClick={() => void loadOpenOrders()}>
+              Auftraege neu laden
+            </Button>
+          </div>
+        </div>
+        {ordersLoading ? <p>loading...</p> : null}
+        {ordersError ? <p className="text-red-600">{ordersError}</p> : null}
+        {!ordersLoading && !ordersError && filteredOpenOrders.length === 0 ? (
+          <p className="text-slate-600">Keine offenen Auftraege gefunden</p>
+        ) : null}
+        {!ordersLoading && !ordersError && filteredOpenOrders.length > 0 ? (
+          <ul className="grid gap-2">
+            {filteredOpenOrders.map((order) => (
+              <li key={order.order_no} className="rounded border border-slate-200 p-2">
+                <p title="Offener Bedarf, der Material fuer laufende oder geplante Fertigung bindet">
+                  Auftragsnummer: {order.order_no}
+                </p>
+                <p>Materialnummer: {order.material_no}</p>
+                <p>Materialbeschreibung: {order.material_description}</p>
+                <p>Benoetigte Meter: {order.required_m}</p>
+                <p>Status: {order.status}</p>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
+    );
+  }
+
   return (
     <div className="grid gap-4 text-sm">
       <section className="flex flex-wrap gap-2">
@@ -382,9 +513,21 @@ export function AdminSimulatorTestPanel() {
         >
           ERP-Benutzer
         </Button>
+        <Button
+          className={`w-full sm:w-auto ${
+            activeTab === "auftraege"
+              ? ""
+              : "bg-white text-slate-900 ring-1 ring-slate-300 hover:bg-slate-100"
+          }`}
+          onClick={() => setActiveTab("auftraege")}
+        >
+          Auftraege
+        </Button>
       </section>
 
-      {activeTab === "artikel" ? renderArtikelTab() : renderErpUsersTab()}
+      {activeTab === "artikel" ? renderArtikelTab() : null}
+      {activeTab === "erp-benutzer" ? renderErpUsersTab() : null}
+      {activeTab === "auftraege" ? renderOrdersTab() : null}
     </div>
   );
 }

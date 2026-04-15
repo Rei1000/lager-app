@@ -13,6 +13,8 @@ import type {
   LoginResponseDto,
   MaterialLookupDto,
   SimulatorMaterialSearchDto,
+  SimulatorMaterialAvailabilityDto,
+  SimulatorOpenOrderDto,
   SimulatorMaterialStockDto,
   PhotoDto,
   OrderDto,
@@ -438,6 +440,26 @@ export async function fetchSimulatorMaterialStock(
       method: "GET",
     }
   );
+}
+
+export async function fetchSimulatorMaterialAvailability(
+  articleNumber: string
+): Promise<SimulatorMaterialAvailabilityDto> {
+  return request<SimulatorMaterialAvailabilityDto>(
+    `/simulator/sage/materials/availability?material_no=${encodeURIComponent(articleNumber)}`,
+    {
+      method: "GET",
+    }
+  );
+}
+
+export async function fetchSimulatorOpenOrders(materialNumber?: string): Promise<SimulatorOpenOrderDto[]> {
+  const query = materialNumber?.trim()
+    ? `?material_no=${encodeURIComponent(materialNumber.trim())}`
+    : "";
+  return request<SimulatorOpenOrderDto[]>(`/simulator/sage/orders/open${query}`, {
+    method: "GET",
+  });
 }
 
 export async function fetchErpMaterial(reference: string): Promise<Record<string, unknown>> {

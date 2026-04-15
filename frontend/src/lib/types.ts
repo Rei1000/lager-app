@@ -122,6 +122,28 @@ export type SimulatorMaterialStockDto = {
   stock_as_of: string;
 };
 
+export type SimulatorOpenOrderDto = {
+  order_no: string;
+  material_no: string;
+  material_description: string;
+  customer_name: string;
+  quantity: number;
+  part_length_mm: number;
+  required_m: number;
+  due_date: string;
+  status: string;
+  priority: string;
+};
+
+export type SimulatorMaterialAvailabilityDto = {
+  material_no: string;
+  description: string;
+  stock_m: number;
+  in_pipeline_m: number;
+  available_m: number;
+  open_orders: SimulatorOpenOrderDto[];
+};
+
 export type PhotoDto = {
   id: number;
   entity_type: string;

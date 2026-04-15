@@ -6,9 +6,11 @@ from fastapi import APIRouter, Body, HTTPException, Query
 
 from adapters.erp.sage_simulator_data import (
     get_material,
+    get_material_availability,
     get_material_stock,
     get_order,
     list_materials,
+    list_open_orders,
     list_orders_by_material,
     send_transfer,
 )
@@ -41,9 +43,25 @@ def material_stock_get(material_no: str = Query(...)) -> dict[str, object]:
     return payload
 
 
+@router.get("/materials/availability")
+def material_availability_get(material_no: str = Query(...)) -> dict[str, object]:
+    payload = get_material_availability(material_no)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Verfuegbarkeit nicht gefunden")
+    return payload
+
+
 @router.get("/orders/by-material")
 def orders_by_material(material_no: str = Query(...)) -> list[dict[str, object]]:
     return list_orders_by_material(material_no)
+
+
+@router.get("/orders/open")
+def list_open_orders_endpoint(material_no: str = Query(default="")) -> list[dict[str, object]]:
+    normalized = material_no.strip()
+    if normalized:
+        return list_open_orders(material_reference=normalized)
+    return list_open_orders()
 
 
 @router.get("/orders/get")
