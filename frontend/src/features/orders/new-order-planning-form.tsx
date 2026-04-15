@@ -1,11 +1,12 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ApiClientError, getMaterialByArticleNumber, previewOrderPlan, searchSimulatorMaterials } from "@/lib/api-client";
-import type { MaterialLookupDto, OrderPlanPreviewDto, SimulatorMaterialSearchDto } from "@/lib/types";
+import { SimulatorMaterialSearchPanel } from "@/features/orders/simulator-material-search-panel";
+import { ApiClientError, getMaterialByArticleNumber, previewOrderPlan } from "@/lib/api-client";
+import type { MaterialLookupDto, OrderPlanPreviewDto } from "@/lib/types";
 
 type SawOption = {
   id: string;
@@ -28,11 +29,6 @@ export function NewOrderPlanningForm() {
   const [preview, setPreview] = useState<OrderPlanPreviewDto | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchResults, setSearchResults] = useState<SimulatorMaterialSearchDto[]>([]);
-  const [searchMessage, setSearchMessage] = useState<string | null>(null);
 
   const [quantity, setQuantity] = useState("1");
   const [partLengthMm, setPartLengthMm] = useState("1000");
@@ -161,28 +157,6 @@ export function NewOrderPlanningForm() {
     }
   }
 
-  async function onSearchSimulator(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const q = searchQuery.trim();
-    if (!q) {
-      setSearchMessage("Suchbegriff eingeben");
-      setSearchResults([]);
-      return;
-    }
-    setSearchLoading(true);
-    setSearchMessage(null);
-    setSearchResults([]);
-    try {
-      const rows = await searchSimulatorMaterials(q);
-      setSearchResults(rows);
-      setSearchMessage(rows.length ? `${rows.length} Treffer` : "Keine Treffer");
-    } catch {
-      setSearchMessage("Suche fehlgeschlagen");
-    } finally {
-      setSearchLoading(false);
-    }
-  }
-
   return (
     <div className="grid gap-6 text-sm text-slate-800">
       <section className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:p-4">
@@ -207,42 +181,13 @@ export function NewOrderPlanningForm() {
         </div>
         <p className="text-xs text-slate-500">Scan-Anbindung kann später ergänzt werden.</p>
 
-        <form className="grid gap-2 rounded border border-dashed border-slate-200 p-2" onSubmit={onSearchSimulator}>
-          <p className="text-xs font-medium text-slate-600">Optional: Simulator-Suche</p>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-            <label className="grid min-w-0 flex-1 gap-1">
-              Suchbegriff
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Nummer oder Text"
-              />
-            </label>
-            <Button type="submit" className="w-full sm:w-auto" disabled={searchLoading}>
-              {searchLoading ? "..." : "Suchen"}
-            </Button>
-          </div>
-          {searchMessage ? <p className="text-xs text-slate-600">{searchMessage}</p> : null}
-          {searchResults.length > 0 ? (
-            <ul className="max-h-40 overflow-y-auto border border-slate-100">
-              {searchResults.map((row) => (
-                <li key={row.material_no} className="border-b border-slate-100 last:border-0">
-                  <button
-                    type="button"
-                    className="w-full px-2 py-1.5 text-left text-xs hover:bg-slate-50"
-                    onClick={() => {
-                      setArticleInput(row.material_no);
-                      void loadMaterialForArticle(row.material_no);
-                    }}
-                  >
-                    <span className="font-medium">{row.material_no}</span>
-                    <span className="text-slate-600"> — {row.description}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </form>
+        <SimulatorMaterialSearchPanel
+          title="Materialsuche (Volltext + Filter, wie Simulator-Test)"
+          onPickArticle={(articleNo) => {
+            setArticleInput(articleNo);
+            void loadMaterialForArticle(articleNo);
+          }}
+        />
 
         {loadError ? <p className="text-sm text-red-600">{loadError}</p> : null}
 

@@ -19,10 +19,12 @@ import type {
   SimulatorMaterialSearchDto,
   SimulatorOpenOrderDto,
 } from "@/lib/types";
-
-const MAIN_GROUP_OPTIONS = ["100", "200", "300", "400", "410", "420", "430", "440"] as const;
-const MATERIAL_OPTIONS = ["FE", "AL", "CU", "VA", "MS"] as const;
-const DIMENSION_OPTIONS = ["010", "012", "025", "050", "100"] as const;
+import {
+  DIMENSION_OPTIONS,
+  MAIN_GROUP_OPTIONS,
+  MATERIAL_OPTIONS,
+  matchesSimulatorMaterialFilters,
+} from "@/features/orders/simulator-material-search-constants";
 
 type SearchResultRow = {
   article_number: string;
@@ -102,20 +104,6 @@ export function AdminSimulatorTestPanel() {
     void loadOpenOrders();
   }, [activeTab, ordersLoaded]);
 
-  function matchesFilters(item: SimulatorMaterialSearchDto): boolean {
-    const [groupCode, materialCode, dimensionCode] = item.material_no.split("-");
-    if (mainGroupFilter && groupCode !== mainGroupFilter) {
-      return false;
-    }
-    if (materialFilter && materialCode !== materialFilter) {
-      return false;
-    }
-    if (dimensionFilter && dimensionCode !== dimensionFilter) {
-      return false;
-    }
-    return true;
-  }
-
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setHasSearched(true);
@@ -126,7 +114,13 @@ export function AdminSimulatorTestPanel() {
 
     try {
       const rawResults = await searchSimulatorMaterials(searchQuery.trim());
-      const filteredResults = rawResults.filter(matchesFilters);
+      const filteredResults = rawResults.filter((item) =>
+        matchesSimulatorMaterialFilters(item, {
+          mainGroup: mainGroupFilter,
+          material: materialFilter,
+          dimension: dimensionFilter,
+        })
+      );
 
       if (filteredResults.length === 0) {
         setSearchStatusText("Keine Treffer");
