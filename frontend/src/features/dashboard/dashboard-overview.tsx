@@ -147,7 +147,14 @@ export function DashboardOverview() {
                     {order.traffic_light ?? "-"}
                   </span>
                 </div>
-                <p>Material: {order.material_article_number}</p>
+                <p>
+                  Material: {order.material_article_number}
+                  {order.material_description ? (
+                    <span className="text-slate-700"> — {order.material_description}</span>
+                  ) : null}
+                </p>
+                {order.customer_name ? <p>Kunde (dispositiv): {order.customer_name}</p> : null}
+                {order.due_date ? <p>Faellig (Wunsch): {order.due_date}</p> : null}
                 <div className="grid gap-0.5 rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
                   <p className="font-medium">ERP</p>
                   <p>Bestand: {erpInfo?.stockLabel ?? "nicht verfuegbar"}</p>

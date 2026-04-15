@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from pydantic import BaseModel, Field
 
 from domain.entities import AppOrder
@@ -14,6 +16,8 @@ class CreateOrderRequest(BaseModel):
     part_length_mm: int = Field(gt=0)
     kerf_mm: int = Field(ge=0)
     include_rest_stock: bool
+    customer_name: str | None = Field(None, max_length=255)
+    due_date: date | None = None
 
 
 class ReprioritizeOrdersRequest(BaseModel):
@@ -34,6 +38,7 @@ class OrderResponse(BaseModel):
     display_order_code: str
     persisted_row_id: int | None
     material_article_number: str
+    material_description: str | None
     quantity: int
     part_length_mm: int
     kerf_mm: int
@@ -43,6 +48,9 @@ class OrderResponse(BaseModel):
     traffic_light: str | None
     erp_order_number: str | None
     total_demand_mm: int
+    required_m: float
+    customer_name: str | None
+    due_date: date | None
 
     @classmethod
     def from_domain(cls, order: AppOrder) -> "OrderResponse":
@@ -50,11 +58,13 @@ class OrderResponse(BaseModel):
             display = f"APP-{order.persisted_row_id:06d}"
         else:
             display = (order.order_id or "").strip()
+        req_m = round(order.total_demand_mm / 1000.0, 6)
         return cls(
             order_id=order.order_id,
             display_order_code=display,
             persisted_row_id=order.persisted_row_id,
             material_article_number=order.material_article_number,
+            material_description=order.material_description,
             quantity=order.quantity,
             part_length_mm=order.part_length_mm,
             kerf_mm=order.kerf_mm,
@@ -64,6 +74,9 @@ class OrderResponse(BaseModel):
             traffic_light=order.traffic_light.value if order.traffic_light is not None else None,
             erp_order_number=order.erp_order_number,
             total_demand_mm=order.total_demand_mm,
+            required_m=req_m,
+            customer_name=order.customer_name,
+            due_date=order.due_date,
         )
 
 

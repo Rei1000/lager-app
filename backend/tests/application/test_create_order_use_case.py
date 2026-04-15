@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from adapters.api.schemas.orders import OrderResponse
 from application.dtos import CreateOrderCommand
 from application.use_cases.create_order_use_case import CreateOrderUseCase
@@ -176,8 +178,15 @@ def test_order_response_display_order_code_uses_persisted_row_id() -> None:
         kerf_mm=0,
         include_rest_stock=False,
         persisted_row_id=42,
+        customer_name="Demo-Kunde",
+        due_date=date(2026, 5, 1),
+        material_description="Profil X",
     )
     order.traffic_light = TrafficLight.GREEN
     response = OrderResponse.from_domain(order)
     assert response.display_order_code == "APP-000042"
     assert response.persisted_row_id == 42
+    assert response.material_description == "Profil X"
+    assert response.required_m == 1.0
+    assert response.customer_name == "Demo-Kunde"
+    assert response.due_date == date(2026, 5, 1)

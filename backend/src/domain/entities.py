@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 
 from domain.order_plan_cutting import calculate_cutting_plan_demand_mm
 from domain.value_objects import TrafficLight
@@ -87,6 +87,10 @@ class AppOrder:
     # Erstellender Benutzer (Persistenz); persisted_row_id = app_orders.id fuer API-Anzeige, keine Fachregel
     created_by_user_id: int | None = None
     persisted_row_id: int | None = None
+    # optional: dispositiver Kunde / Wunschtermin / Stamm-Bezeichnung (Lesen)
+    customer_name: str | None = None
+    due_date: date | None = None
+    material_description: str | None = None
 
     def __post_init__(self) -> None:
         if not self.material_article_number.strip():
@@ -101,6 +105,8 @@ class AppOrder:
             raise ValueError("priority_order muss groesser als 0 sein")
         if self.status not in ALLOWED_STATUS_TRANSITIONS:
             raise ValueError(f"Unbekannter Status: {self.status}")
+        if self.customer_name is not None and len(self.customer_name) > 255:
+            raise ValueError("customer_name ist zu lang")
 
     @property
     def total_demand_mm(self) -> int:

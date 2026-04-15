@@ -11,6 +11,7 @@ type OrdersTab = "new" | "list";
 
 export default function OrdersPage() {
   const [activeTab, setActiveTab] = useState<OrdersTab>("new");
+  const [ordersListRefresh, setOrdersListRefresh] = useState(0);
 
   return (
     <PageShell title="Auftraege">
@@ -60,10 +61,10 @@ export default function OrdersPage() {
           aria-labelledby="orders-tab-new-trigger"
           className={activeTab === "new" ? "grid gap-4" : "hidden"}
         >
-          <p className="rounded border border-amber-200 bg-amber-50/80 p-2 text-xs text-amber-950">
-            Planung und Pruefung nur im Frontend. Es wird kein Auftrag gespeichert.
+          <p className="rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-800">
+            Planung mit Backend-Vorschau. Unter F) wird der App-Auftrag per API in der Datenbank gespeichert.
           </p>
-          <NewOrderPlanningForm />
+          <NewOrderPlanningForm onAppOrderSaved={() => setOrdersListRefresh((n) => n + 1)} />
         </div>
 
         <div
@@ -72,7 +73,7 @@ export default function OrdersPage() {
           aria-labelledby="orders-tab-list-trigger"
           className={activeTab === "list" ? "grid gap-4" : "hidden"}
         >
-          <OrdersOpenOverview />
+          <OrdersOpenOverview listRefreshToken={ordersListRefresh} />
         </div>
       </div>
     </PageShell>

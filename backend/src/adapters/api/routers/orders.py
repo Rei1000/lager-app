@@ -89,6 +89,8 @@ def create_order(
                 kerf_mm=payload.kerf_mm,
                 include_rest_stock=payload.include_rest_stock,
                 acting_user_id=current_user.user_id,
+                customer_name=payload.customer_name,
+                due_date=payload.due_date,
             )
         )
     except ValueError as exc:

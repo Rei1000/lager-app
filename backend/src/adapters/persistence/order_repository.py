@@ -83,6 +83,7 @@ class SqlAlchemyOrderRepository(OrderRepositoryPort):
             except ValueError:
                 light = None
         oid = model.external_order_id if model.external_order_id else str(model.id)
+        desc = (material.name or "").strip() or None
         return AppOrder(
             order_id=oid,
             material_article_number=article,
@@ -96,6 +97,9 @@ class SqlAlchemyOrderRepository(OrderRepositoryPort):
             erp_order_number=model.erp_order_number,
             created_by_user_id=model.created_by_user_id,
             persisted_row_id=int(model.id),
+            customer_name=model.customer_name,
+            due_date=model.due_date,
+            material_description=desc,
         )
 
     def _insert(self, session: Session, order: AppOrder) -> None:
@@ -133,10 +137,13 @@ class SqlAlchemyOrderRepository(OrderRepositoryPort):
             status=order.status,
             priority_order=order.priority_order,
             erp_order_number=order.erp_order_number,
+            customer_name=order.customer_name,
+            due_date=order.due_date,
         )
         session.add(model)
         session.flush()
         order.persisted_row_id = int(model.id)
+        order.material_description = (material.name or "").strip() or None
 
     def _update(self, session: Session, model: AppOrderModel, order: AppOrder) -> None:
         kerf_dec = Decimal(str(order.kerf_mm))
@@ -156,3 +163,5 @@ class SqlAlchemyOrderRepository(OrderRepositoryPort):
         model.status = order.status
         model.priority_order = order.priority_order
         model.erp_order_number = order.erp_order_number
+        model.customer_name = order.customer_name
+        model.due_date = order.due_date

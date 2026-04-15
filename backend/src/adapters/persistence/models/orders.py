@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -10,6 +10,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -61,6 +62,8 @@ class AppOrderModel(Base):
     status: Mapped[str] = mapped_column(String(30), nullable=False)
     priority_order: Mapped[int | None] = mapped_column(Integer())
     erp_order_number: Mapped[str | None] = mapped_column(String(100))
+    customer_name: Mapped[str | None] = mapped_column(String(255))
+    due_date: Mapped[date | None] = mapped_column(Date())
     reserved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     linked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

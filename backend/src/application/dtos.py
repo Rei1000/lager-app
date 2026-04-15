@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 
 
 @dataclass(frozen=True)
@@ -14,6 +15,8 @@ class CreateOrderCommand:
     kerf_mm: int
     include_rest_stock: bool
     acting_user_id: int
+    customer_name: str | None = None
+    due_date: date | None = None
 
 
 @dataclass(frozen=True)

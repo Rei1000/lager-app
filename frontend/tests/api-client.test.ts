@@ -47,6 +47,7 @@ describe("api client", () => {
           display_order_code: "APP-000001",
           persisted_row_id: 1,
           material_article_number: "ART-001",
+          material_description: "Stahlprofil",
           quantity: 1,
           part_length_mm: 1000,
           kerf_mm: 0,
@@ -56,6 +57,9 @@ describe("api client", () => {
           traffic_light: "green",
           erp_order_number: null,
           total_demand_mm: 1000,
+          required_m: 1,
+          customer_name: null,
+          due_date: null,
         }),
       })
     );

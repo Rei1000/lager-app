@@ -114,6 +114,9 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
           order.display_order_code ?? "",
           order.order_id ?? "",
           order.material_article_number,
+          order.material_description ?? "",
+          order.customer_name ?? "",
+          order.due_date ?? "",
           order.status,
           String(order.total_demand_mm),
         ]
@@ -138,6 +141,9 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
           order.material_no,
           order.material_description,
           order.customer_name,
+          order.due_date ?? "",
+          order.status,
+          String(order.priority ?? ""),
         ]
           .join(" ")
           .toLowerCase();
@@ -229,21 +235,38 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
               ) : null}
               <p>
                 Material: <span className="font-mono">{order.material_article_number}</span>
+                {order.material_description ? (
+                  <span className="text-slate-700"> — {order.material_description}</span>
+                ) : null}
               </p>
               <p className="text-slate-700">
-                Menge: {order.quantity} × {order.part_length_mm} mm · Kerf {order.kerf_mm} mm · Bedarf gesamt:{" "}
-                {(order.total_demand_mm / 1000).toLocaleString("de-DE", { maximumFractionDigits: 3 })} m
+                Menge: {order.quantity} × {order.part_length_mm} mm · Kerf {order.kerf_mm} mm · Bedarf:{" "}
+                {order.required_m.toLocaleString("de-DE", { maximumFractionDigits: 3 })} m (wie ERP-Sim{" "}
+                <code className="text-xs">required_m</code>)
               </p>
               <p className="text-slate-700">
-                <span className="font-medium">Workflow-Status:</span> {appOrderStatusLabelDe(order.status)}{" "}
+                <span className="font-medium">Workflow-Status (Lager-App):</span> {appOrderStatusLabelDe(order.status)}{" "}
                 <span className="text-slate-500">({order.status})</span>
               </p>
               <p className="text-slate-700">
                 <span className="font-medium">Ampel (Disposition):</span> {trafficLightLabelDe(order.traffic_light)}
                 {order.traffic_light ? <span className="text-slate-500"> ({order.traffic_light})</span> : null}
               </p>
+              {order.customer_name ? (
+                <p className="text-slate-600">
+                  Kunde (dispositiv): {order.customer_name}
+                </p>
+              ) : null}
+              {order.due_date ? (
+                <p className="text-slate-600">Faellig (Wunsch): {order.due_date}</p>
+              ) : null}
+              {order.erp_order_number ? (
+                <p className="text-xs text-slate-600">
+                  ERP-Referenz: <span className="font-mono">{order.erp_order_number}</span>
+                </p>
+              ) : null}
               <p className="text-xs text-slate-600">
-                Reihenfolge am Material (automatisch vergeben, niedrig = frueher):{" "}
+                Reihenfolge am Material (App, automatisch, niedrig = frueher):{" "}
                 <span className="font-medium text-slate-800">{order.priority_order ?? "—"}</span>
               </p>
             </li>
@@ -287,16 +310,16 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
                   ) : null}
                 </p>
                 <p className="text-slate-700">
-                  Bedarf: {formatRequiredMeters(order.required_m)} · Status: {order.status}
+                  Bedarf: {formatRequiredMeters(order.required_m)} · Status (ERP-Demo): {order.status}
                   {order.priority ? (
-                    <span className="text-slate-600"> · Prioritaet (Demo): {order.priority}</span>
+                    <span className="text-slate-600"> · Prioritaet (ERP-Demo-Code): {order.priority}</span>
                   ) : null}
                 </p>
                 {order.customer_name ? (
-                  <p className="text-slate-600">Kunde: {order.customer_name}</p>
+                  <p className="text-slate-600">Kunde (ERP-Demo): {order.customer_name}</p>
                 ) : null}
                 {order.due_date ? (
-                  <p className="text-slate-600">Faellig: {order.due_date}</p>
+                  <p className="text-slate-600">Faellig (ERP-Demo): {order.due_date}</p>
                 ) : null}
               </div>
             </li>

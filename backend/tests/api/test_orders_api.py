@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi.testclient import TestClient
 
 from adapters.api.app import app
@@ -11,10 +13,18 @@ from adapters.api.dependencies.use_cases import (
     get_reprioritize_orders_use_case,
     get_reserve_order_use_case,
 )
+from application.use_cases.create_order_use_case import CreateOrderUseCase
 from application.errors import NotFoundError
 from domain.entities import AppOrder
 from domain.value_objects import TrafficLight
 from ports.auth_identity_port import AuthIdentityRecord
+from ports.stock_snapshot_port import StockSnapshot
+
+from tests.application.test_create_order_use_case import (
+    _FailingAuditLogPort,
+    _FakeOrderRepository,
+    _FixedSnapshot,
+)
 
 
 def _make_order(order_id: str, priority: int = 1, status: str = "draft") -> AppOrder:
@@ -62,6 +72,95 @@ def test_create_order_endpoint_returns_created_order() -> None:
     assert response.status_code == 201
     assert response.json()["order_id"] == "A100"
     assert response.json()["traffic_light"] == "green"
+    app.dependency_overrides.clear()
+
+
+def test_create_order_persists_optional_customer_and_due_date() -> None:
+    """POST /orders: optionale Felder werden im Use Case normalisiert und in OrderResponse ausgegeben."""
+    app.dependency_overrides[require_authenticated_user] = lambda: RequestUser(
+        user_id=1,
+        username="lager",
+        role_code="lager",
+        role_name="Lager",
+    )
+    repo = _FakeOrderRepository()
+    snapshot = StockSnapshot(
+        erp_stock_mm=10_000_000,
+        open_erp_orders_mm=0,
+        app_reservations_mm=0,
+        rest_stock_mm=0,
+    )
+    real_uc = CreateOrderUseCase(
+        order_repository=repo,
+        stock_snapshot_port=_FixedSnapshot(snapshot),
+        audit_log_port=None,
+    )
+    app.dependency_overrides[get_create_order_use_case] = lambda: real_uc
+    client = TestClient(app)
+
+    response = client.post(
+        "/orders",
+        json={
+            "order_id": "opt-fields-1",
+            "material_article_number": "ART-001",
+            "quantity": 1,
+            "part_length_mm": 1000,
+            "kerf_mm": 0,
+            "include_rest_stock": False,
+            "customer_name": "  Kunde X  ",
+            "due_date": "2026-07-20",
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["customer_name"] == "Kunde X"
+    assert body["due_date"] == "2026-07-20"
+    saved = repo.get_by_id("opt-fields-1")
+    assert saved is not None
+    assert saved.customer_name == "Kunde X"
+    assert saved.due_date == date(2026, 7, 20)
+    app.dependency_overrides.clear()
+
+
+def test_post_orders_returns_201_when_audit_log_fails() -> None:
+    """Echtes CreateOrderUseCase mit fehlendem Audit: API bleibt erfolgreich (201)."""
+    app.dependency_overrides[require_authenticated_user] = lambda: RequestUser(
+        user_id=1,
+        username="lager",
+        role_code="lager",
+        role_name="Lager",
+    )
+    repo = _FakeOrderRepository()
+    snapshot = StockSnapshot(
+        erp_stock_mm=10_000_000,
+        open_erp_orders_mm=0,
+        app_reservations_mm=0,
+        rest_stock_mm=0,
+    )
+    real_uc = CreateOrderUseCase(
+        order_repository=repo,
+        stock_snapshot_port=_FixedSnapshot(snapshot),
+        audit_log_port=_FailingAuditLogPort(),
+    )
+    app.dependency_overrides[get_create_order_use_case] = lambda: real_uc
+    client = TestClient(app)
+
+    response = client.post(
+        "/orders",
+        json={
+            "order_id": "api-audit-fail-1",
+            "material_article_number": "ART-001",
+            "quantity": 1,
+            "part_length_mm": 1000,
+            "kerf_mm": 0,
+            "include_rest_stock": False,
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["order_id"] == "api-audit-fail-1"
+    assert len(repo.orders) == 1
     app.dependency_overrides.clear()
 
 

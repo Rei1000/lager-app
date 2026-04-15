@@ -4,6 +4,8 @@ export type OrderDto = {
   display_order_code: string;
   persisted_row_id: number | null;
   material_article_number: string;
+  /** Aus Materialstamm (material_types.name), gleiche Rolle wie ERP-Sim material_description */
+  material_description: string | null;
   quantity: number;
   part_length_mm: number;
   kerf_mm: number;
@@ -13,6 +15,11 @@ export type OrderDto = {
   traffic_light: string | null;
   erp_order_number: string | null;
   total_demand_mm: number;
+  /** Bedarf m (Brutto), vergleichbar mit ERP-Sim required_m */
+  required_m: number;
+  customer_name: string | null;
+  /** ISO-Datum YYYY-MM-DD */
+  due_date: string | null;
 };
 
 export type ErpProfileDto = {

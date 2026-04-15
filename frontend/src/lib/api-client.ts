@@ -149,6 +149,9 @@ export async function createOrder(payload: {
   part_length_mm: number;
   kerf_mm: number;
   include_rest_stock: boolean;
+  customer_name?: string | null;
+  /** ISO-Datum YYYY-MM-DD */
+  due_date?: string | null;
 }): Promise<OrderDto> {
   return request<OrderDto>("/orders", {
     method: "POST",

@@ -45,6 +45,8 @@ export function NewOrderPlanningForm({ onAppOrderSaved }: NewOrderPlanningFormPr
   const [selectedSawId, setSelectedSawId] = useState("");
   const [manualKerfMm, setManualKerfMm] = useState("2");
   const [considerRestPieces, setConsiderRestPieces] = useState(false);
+  const [customerName, setCustomerName] = useState("");
+  const [dueDate, setDueDate] = useState("");
 
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<{ kind: "success" | "error"; message: string } | null>(null);
@@ -157,6 +159,8 @@ export function NewOrderPlanningForm({ onAppOrderSaved }: NewOrderPlanningFormPr
         part_length_mm: Math.round(pl),
         kerf_mm: kerfMmInt,
         include_rest_stock: considerRestPieces,
+        customer_name: customerName.trim() || undefined,
+        due_date: dueDate.trim() || undefined,
       });
       const label = saved.display_order_code?.trim() || orderId;
       setSaveFeedback({
@@ -439,6 +443,21 @@ export function NewOrderPlanningForm({ onAppOrderSaved }: NewOrderPlanningFormPr
           ). Reststueck-Checkbox wird als <code>include_rest_stock</code> mitgegeben; die <strong>Ampel</strong> fuer den
           gespeicherten Auftrag kommt aus der <strong>Dispositionslogik</strong> im Backend, nicht aus dieser Vorschau.
         </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1">
+            Kunde (optional, dispositiv)
+            <Input
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="z. B. Projekt oder Abnehmer"
+              autoComplete="off"
+            />
+          </label>
+          <label className="grid gap-1">
+            Faelligkeit / Wunschtermin (optional)
+            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          </label>
+        </div>
         {saveFeedback ? (
           <p
             className={
