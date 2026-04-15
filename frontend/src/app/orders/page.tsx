@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { PageShell } from "@/components/shared/page-shell";
@@ -29,6 +30,14 @@ export default function OrdersPage() {
   return (
     <PageShell title="Auftraege">
       <div className="grid gap-6">
+        <p>
+          <Link
+            href="/orders/new"
+            className="text-sm font-medium text-slate-800 underline underline-offset-2 hover:text-slate-600"
+          >
+            Neuer Auftrag (Planung, ohne Speichern)
+          </Link>
+        </p>
         {error ? <p className="text-sm text-red-600">Fehler: {error}</p> : null}
         <CreateOrderForm onCreated={(_order) => void loadOrders()} />
         <OrdersList initialOrders={orders} onRefresh={loadOrders} />
