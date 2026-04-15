@@ -5,7 +5,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-revision = "20260415_08_app_orders_external_order_id"
+# Max. 32 Zeichen (Alembic `alembic_version.version_num` ist VARCHAR(32)).
+revision = "20260415_08_ext_oid"
 down_revision = "20260411_07"
 branch_labels = None
 depends_on = None
