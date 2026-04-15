@@ -142,20 +142,14 @@ log "Modus: $MODE"
 kill_port 3001
 kill_port 9999
 
-log "Docker Backend wird neu gestartet (down + up -d --build)"
-cd "$ROOT_DIR"
-docker compose down
-docker compose up -d --build
-
-log "Frontend Build-Cache (.next) wird geloescht"
-rm -rf "$FRONTEND_DIR/.next"
-
 TAILSCALE_IP=""
 LAN_IP=""
 FRONTEND_PUBLIC_URL=""
 BACKEND_URL=""
 API_BASE_URL=""
 MOBILE_APP_URL=""
+FRONTEND_ORIGIN=""
+CORS_ALLOW_ORIGINS=""
 
 write_frontend_env_file() {
   cat >"$FRONTEND_ENV_FILE" <<EOF
@@ -169,6 +163,7 @@ EOF
 if [[ "$MODE" == "localhost" ]]; then
   API_BASE_URL="http://localhost:8001"
   MOBILE_APP_URL="http://localhost:3001/login"
+  FRONTEND_ORIGIN="http://localhost:3001"
   FRONTEND_PUBLIC_URL="$MOBILE_APP_URL"
   BACKEND_URL="$API_BASE_URL"
 elif [[ "$MODE" == "lan" ]]; then
@@ -176,6 +171,7 @@ elif [[ "$MODE" == "lan" ]]; then
   [[ -n "$LAN_IP" ]] || abort "keine gueltige LAN-IP gefunden"
   API_BASE_URL="http://${LAN_IP}:8001"
   MOBILE_APP_URL="http://${LAN_IP}:3001/login"
+  FRONTEND_ORIGIN="http://${LAN_IP}:3001"
   FRONTEND_PUBLIC_URL="$MOBILE_APP_URL"
   BACKEND_URL="$API_BASE_URL"
 elif [[ "$MODE" == "tailscale" ]]; then
@@ -184,9 +180,23 @@ elif [[ "$MODE" == "tailscale" ]]; then
   [[ -n "$TAILSCALE_IP" ]] || abort "keine Tailscale IPv4 gefunden"
   API_BASE_URL="http://${TAILSCALE_IP}:8001"
   MOBILE_APP_URL="http://${TAILSCALE_IP}:3001/login"
+  FRONTEND_ORIGIN="http://${TAILSCALE_IP}:3001"
   FRONTEND_PUBLIC_URL="$MOBILE_APP_URL"
   BACKEND_URL="$API_BASE_URL"
 fi
+
+CORS_ALLOW_ORIGINS="http://localhost:3001"
+if [[ "$FRONTEND_ORIGIN" != "http://localhost:3001" ]]; then
+  CORS_ALLOW_ORIGINS="${CORS_ALLOW_ORIGINS},${FRONTEND_ORIGIN}"
+fi
+
+log "Docker Backend wird neu gestartet (down + up -d --build)"
+cd "$ROOT_DIR"
+CORS_ALLOW_ORIGINS="$CORS_ALLOW_ORIGINS" docker compose down
+CORS_ALLOW_ORIGINS="$CORS_ALLOW_ORIGINS" docker compose up -d --build
+
+log "Frontend Build-Cache (.next) wird geloescht"
+rm -rf "$FRONTEND_DIR/.next"
 
 log "Schreibe Frontend ENV nach $FRONTEND_ENV_FILE"
 write_frontend_env_file

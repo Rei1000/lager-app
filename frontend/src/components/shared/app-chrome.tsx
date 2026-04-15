@@ -119,6 +119,16 @@ export function AppChrome({ children }: AppChromeProps) {
     return <>{children}</>;
   }
 
+  if (!mounted || !hasToken) {
+    return (
+      <main className="mx-auto w-full max-w-5xl p-3 sm:p-6">
+        <section className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
+          Weiterleitung zur Anmeldung...
+        </section>
+      </main>
+    );
+  }
+
   return (
     <>
       {shouldShowNavigation ? (
