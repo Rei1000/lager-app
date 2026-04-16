@@ -72,6 +72,76 @@ function matchesCustomerFilter(
   return name === customerFilter;
 }
 
+/** Select-Werte Fälligkeit (intern). */
+const DUE_DATE_FILTER_OVERDUE = "overdue";
+const DUE_DATE_FILTER_TODAY = "today";
+const DUE_DATE_FILTER_THIS_WEEK = "this_week";
+const DUE_DATE_FILTER_NONE = "none";
+
+type DueDateFilterValue =
+  | ""
+  | typeof DUE_DATE_FILTER_OVERDUE
+  | typeof DUE_DATE_FILTER_TODAY
+  | typeof DUE_DATE_FILTER_THIS_WEEK
+  | typeof DUE_DATE_FILTER_NONE;
+
+/** ISO-Datum YYYY-MM-DD aus lokalem Datum (Vergleich mit Backend due_date). */
+function toLocalYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Montag der Kalenderwoche in lokaler Zeit (Mo–So), ISO-üblich. */
+function startOfWeekMondayLocal(ref: Date): Date {
+  const d = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate());
+  const dow = d.getDay();
+  const deltaToMonday = dow === 0 ? -6 : 1 - dow;
+  d.setDate(d.getDate() + deltaToMonday);
+  return d;
+}
+
+/**
+ * due_date aus Order (YYYY-MM-DD). Ungültige/leere Werte → null.
+ * „Diese Woche“: due liegt zwischen Montag und Sonntag der aktuellen Kalenderwoche (lokal, Grenzen inklusive),
+ * Vergleich als ISO-Datum-Strings.
+ */
+function parseDueYmd(value: string | null | undefined): string | null {
+  const t = value?.trim() ?? "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+    return null;
+  }
+  return t;
+}
+
+function matchesDueDateFilter(
+  dueDateRaw: string | null | undefined,
+  filter: DueDateFilterValue,
+  cal: { todayYmd: string; weekStartYmd: string; weekEndYmd: string }
+): boolean {
+  if (!filter) {
+    return true;
+  }
+  const due = parseDueYmd(dueDateRaw);
+  if (!due) {
+    return filter === DUE_DATE_FILTER_NONE;
+  }
+  if (filter === DUE_DATE_FILTER_NONE) {
+    return false;
+  }
+  if (filter === DUE_DATE_FILTER_OVERDUE) {
+    return due < cal.todayYmd;
+  }
+  if (filter === DUE_DATE_FILTER_TODAY) {
+    return due === cal.todayYmd;
+  }
+  if (filter === DUE_DATE_FILTER_THIS_WEEK) {
+    return due >= cal.weekStartYmd && due <= cal.weekEndYmd;
+  }
+  return true;
+}
+
 type OrdersOpenOverviewProps = {
   /** Erhoehen, um App- und Simulator-Listen neu zu laden (z. B. nach neuem App-Auftrag). */
   listRefreshToken?: number;
@@ -101,6 +171,7 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
   });
   const [statusFilter, setStatusFilter] = useState("");
   const [customerFilter, setCustomerFilter] = useState("");
+  const [dueDateFilter, setDueDateFilter] = useState<DueDateFilterValue>("");
 
   /** Direkt aus der URL abgeleitet (queryString als Abhaengigkeit: zuverlaessig bei Client-Navigation). */
   const queryString = searchParams.toString();
@@ -198,6 +269,17 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
     [materialFilter.mainGroup, materialFilter.material, materialFilter.dimension]
   );
 
+  /** Tages-/Wochengrenzen für Fälligkeitsfilter (neu bei Datenreload oder Filterwechsel). */
+  const dueCalendarSnapshot = useMemo(() => {
+    const now = new Date();
+    const todayYmd = toLocalYmd(now);
+    const mon = startOfWeekMondayLocal(now);
+    const weekStartYmd = toLocalYmd(mon);
+    const sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6);
+    const weekEndYmd = toLocalYmd(sun);
+    return { todayYmd, weekStartYmd, weekEndYmd };
+  }, [listRefreshToken, reloadAfterReprioritize, dueDateFilter]);
+
   const matchesListingFilters = useCallback(
     (order: OrderDto) => {
       if (statusFilter && order.status !== statusFilter) {
@@ -210,6 +292,9 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
         }
       }
       if (!matchesCustomerFilter(customerFilter, order.customer_name)) {
+        return false;
+      }
+      if (!matchesDueDateFilter(order.due_date, dueDateFilter, dueCalendarSnapshot)) {
         return false;
       }
       if (!matchesArticleNumberSimulatorFilters(order.material_article_number.trim(), structuralFilters)) {
@@ -233,7 +318,15 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
         .toLowerCase();
       return hay.includes(q);
     },
-    [statusFilter, trafficLightFilter, customerFilter, structuralFilters, materialFilter.textQuery]
+    [
+      statusFilter,
+      trafficLightFilter,
+      customerFilter,
+      dueDateFilter,
+      dueCalendarSnapshot,
+      structuralFilters,
+      materialFilter.textQuery,
+    ]
   );
 
   const materialBlocks = useMemo(() => {
@@ -302,6 +395,8 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
     const q = materialFilter.textQuery.trim().toLowerCase();
     return [...simulatorRows]
       .filter((order) => (statusFilter ? order.status === statusFilter : true))
+      .filter((order) => matchesCustomerFilter(customerFilter, order.customer_name))
+      .filter((order) => matchesDueDateFilter(order.due_date, dueDateFilter, dueCalendarSnapshot))
       .filter((order) => matchesArticleNumberSimulatorFilters(order.material_no.trim(), structuralFilters))
       .filter((order) => {
         if (!q) {
@@ -321,7 +416,16 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
         return hay.includes(q);
       })
       .sort((a, b) => a.order_no.localeCompare(b.order_no, "de"));
-  }, [simulatorRows, statusFilter, customerFilter, trafficLightFilter, structuralFilters, materialFilter.textQuery]);
+  }, [
+    simulatorRows,
+    statusFilter,
+    customerFilter,
+    dueDateFilter,
+    dueCalendarSnapshot,
+    trafficLightFilter,
+    structuralFilters,
+    materialFilter.textQuery,
+  ]);
 
   const trafficLightBannerClass =
     trafficLightFilter === "red"
@@ -381,9 +485,10 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
 
       <div className="grid gap-3 rounded border border-slate-200 p-3">
         <p className="text-xs font-medium text-slate-600">
-          Filter gelten fuer <strong>beide</strong> Listen: Volltext, Kunde, Hauptgruppe/Material/Dimension (ueber
-          Artikelnummer, Schema wie Simulator) und Status (exakter Code; App- und ERP-Sim-Status koennen sich
-          unterscheiden).
+          Filter gelten fuer <strong>beide</strong> Listen: Volltext, Kunde, Fälligkeit, Hauptgruppe/Material/Dimension
+          (ueber Artikelnummer, Schema wie Simulator) und Status (exakter Code; App- und ERP-Sim-Status koennen sich
+          unterscheiden). <span className="text-slate-500">Fälligkeit „Diese Woche“: Montag bis Sonntag der lokalen
+          Kalenderwoche (ISO-Woche, Mo–So), Vergleich mit <code className="text-[11px]">due_date</code>.</span>
         </p>
         <SimulatorMaterialFilterInputs
           values={materialFilter}
@@ -407,6 +512,20 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
                 {name}
               </option>
             ))}
+          </select>
+        </label>
+        <label className="grid max-w-md gap-1">
+          Fälligkeit
+          <select
+            className="h-10 min-h-[44px] w-full max-w-md rounded-md border border-slate-300 px-3 text-sm"
+            value={dueDateFilter}
+            onChange={(e) => setDueDateFilter(e.target.value as DueDateFilterValue)}
+          >
+            <option value="">Alle</option>
+            <option value={DUE_DATE_FILTER_OVERDUE}>Überfällig</option>
+            <option value={DUE_DATE_FILTER_TODAY}>Heute</option>
+            <option value={DUE_DATE_FILTER_THIS_WEEK}>Diese Woche</option>
+            <option value={DUE_DATE_FILTER_NONE}>Ohne Fälligkeit</option>
           </select>
         </label>
         <label className="grid max-w-md gap-1">
