@@ -2,6 +2,12 @@
  * Reine UI-Texte / Zuordnungen — keine Fachlogik (Domain bleibt englisch: draft, green, …).
  */
 
+import type { OrderDto } from "@/lib/types";
+
+export function appOrderPrimaryLabel(order: OrderDto): string {
+  return order.display_order_code?.trim() || order.order_id || "—";
+}
+
 export const APP_ORDER_STATUS_LABEL_DE: Record<string, string> = {
   draft: "Entwurf",
   checked: "Geprueft",

@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { TrafficLightIndicator } from "@/components/shared/traffic-light-indicator";
-import { appOrderStatusLabelDe } from "@/features/orders/app-order-copy";
-import { AppOrdersMaterialDndBlock } from "@/features/orders/app-orders-material-dnd-block";
+import { AppOrderListingCard } from "@/features/orders/app-order-listing-card";
+import {
+  AppOrdersMaterialDndBlock,
+  type AppOrderRenderContext,
+} from "@/features/orders/app-orders-material-dnd-block";
+import { MobileMaterialReorderSheet } from "@/features/orders/mobile-material-reorder-sheet";
 import { OrderEditModal } from "@/features/orders/order-edit-modal";
 import { SimulatorMaterialFilterInputs } from "@/features/orders/simulator-material-filter-inputs";
 import {
@@ -12,16 +15,11 @@ import {
   type SimulatorSearchFilters,
 } from "@/features/orders/simulator-material-search-constants";
 import { ApiClientError, fetchOrders, fetchSimulatorOpenOrders, reprioritizeOrders } from "@/lib/api-client";
-import { useCoarsePointer } from "@/lib/use-coarse-pointer";
-import { cn } from "@/lib/utils";
+import { useNarrowViewport } from "@/lib/use-narrow-viewport";
 import type { OrderDto, SimulatorOpenOrderDto } from "@/lib/types";
 
 function formatRequiredMeters(requiredM: number): string {
   return `${requiredM.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 3 })} m`;
-}
-
-function appOrderPrimaryLabel(order: OrderDto): string {
-  return order.display_order_code?.trim() || order.order_id || "—";
 }
 
 /** Gleiche Sortierung wie Backend-Disposition: Material, dann priority_order. */
@@ -60,7 +58,9 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
   const [reprioritizeBusyMaterial, setReprioritizeBusyMaterial] = useState<string | null>(null);
   const [reloadAfterReprioritize, setReloadAfterReprioritize] = useState(0);
   const [editingOrder, setEditingOrder] = useState<OrderDto | null>(null);
-  const coarsePointer = useCoarsePointer();
+  const [draggingMaterialKey, setDraggingMaterialKey] = useState<string | null>(null);
+  const [mobileReorderMaterial, setMobileReorderMaterial] = useState<string | null>(null);
+  const narrowViewport = useNarrowViewport();
 
   const [materialFilter, setMaterialFilter] = useState({
     textQuery: "",
@@ -105,6 +105,12 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
       active = false;
     };
   }, [listRefreshToken, reloadAfterReprioritize]);
+
+  useEffect(() => {
+    if (!narrowViewport) {
+      setMobileReorderMaterial(null);
+    }
+  }, [narrowViewport]);
 
   /** Vereinigung der Status-Codes aus App und ERP-Sim (gleiche Filtersemantik: exakter String-Vergleich). */
   const combinedStatusOptions = useMemo(() => {
@@ -169,7 +175,10 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
       .filter((b) => b.show);
   }, [appOrders, matchesListingFilters]);
 
-  const applyMaterialReorder = useCallback(async (materialArticleNumber: string, orderedIds: string[]) => {
+  const applyMaterialReorder = useCallback(async (
+    materialArticleNumber: string,
+    orderedIds: string[]
+  ): Promise<boolean> => {
     setReprioritizeError(null);
     setReprioritizeBusyMaterial(materialArticleNumber);
     try {
@@ -178,13 +187,29 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
         ordered_ids: orderedIds,
       });
       setReloadAfterReprioritize((n) => n + 1);
+      return true;
     } catch (e) {
       const msg =
         e instanceof ApiClientError ? e.message : e instanceof Error ? e.message : "Reihung konnte nicht gespeichert werden";
       setReprioritizeError(msg);
+      return false;
     } finally {
       setReprioritizeBusyMaterial(null);
     }
+  }, []);
+
+  const renderAppOrderCard = useCallback((ctx: AppOrderRenderContext) => {
+    return (
+      <AppOrderListingCard
+        order={ctx.order}
+        positionLabel={ctx.positionLabel}
+        dragPeerCompact={ctx.dragPeerCompact}
+        dragActiveSimplified={ctx.dragActiveSimplified}
+        reorderUiMode={ctx.reorderUiMode}
+        canEdit={canEditAppOrder(ctx.order)}
+        onEdit={setEditingOrder}
+      />
+    );
   }, []);
 
   const visibleSimulatorOrders = useMemo(() => {
@@ -283,164 +308,103 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
         ) : null}
         <div className="grid gap-6">
           {materialBlocks.map(({ material, sequence }) => (
-            <div key={material} className="grid gap-2">
+            <div
+              key={material}
+              className={
+                draggingMaterialKey && draggingMaterialKey !== material
+                  ? "grid gap-2 opacity-[0.4] transition-opacity duration-200"
+                  : draggingMaterialKey === material
+                    ? "relative z-[8] grid gap-2 transition-opacity duration-200"
+                    : "grid gap-2 transition-opacity duration-200"
+              }
+            >
               <p className="text-xs font-medium text-slate-700">
                 Material: <span className="font-mono">{material}</span>
                 {sequence.length > 1 ? (
-                  <span className="font-normal text-slate-600">
-                    {" "}
-                    — Reihenfolge per Drag &amp; Drop anpassen (nur dieses Material; vollstaendige Liste wird
-                    gespeichert).
-                  </span>
+                  <>
+                    <span className="hidden font-normal text-slate-600 sm:inline">
+                      {" "}
+                      — Reihenfolge per Drag &amp; Drop anpassen (nur dieses Material; vollstaendige Liste wird
+                      gespeichert).
+                    </span>
+                    <span className="font-normal text-slate-600 sm:hidden">
+                      {" "}
+                      — Reihenfolge auf dem Smartphone ueber «Reihenfolge aendern» (nur dieses Material).
+                    </span>
+                  </>
                 ) : null}
               </p>
               {reprioritizeBusyMaterial === material ? (
                 <p className="text-xs text-slate-600">Speichere neue Reihenfolge …</p>
               ) : null}
-              <AppOrdersMaterialDndBlock
-                materialArticleNumber={material}
-                sequence={sequence}
-                reorderDisabled={loading || reprioritizeBusyMaterial !== null || sequence.length < 2}
-                isOrderDimmed={(o) => !matchesListingFilters(o)}
-                onDragEndReorder={(ids) => applyMaterialReorder(material, ids)}
-                renderCard={({ order, positionLabel }) => {
-                  const canEdit = canEditAppOrder(order);
-                  return (
-                  <div className="relative">
-                    {canEdit && order.order_id ? (
-                      <button
-                        type="button"
-                        className="absolute right-0 top-0 z-10 rounded border border-emerald-200 bg-white/95 p-1.5 text-emerald-900 shadow-sm hover:bg-emerald-50"
-                        aria-label="Auftrag bearbeiten"
-                        title="Bearbeiten"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingOrder(order);
-                        }}
+
+              <div className="hidden sm:block">
+                <AppOrdersMaterialDndBlock
+                  materialArticleNumber={material}
+                  sequence={sequence}
+                  reorderDisabled={loading || reprioritizeBusyMaterial !== null || sequence.length < 2}
+                  isOrderDimmed={(o) => !matchesListingFilters(o)}
+                  onDragEndReorder={async (ids) => {
+                    await applyMaterialReorder(material, ids);
+                  }}
+                  onMaterialDragActiveChange={setDraggingMaterialKey}
+                  renderCard={renderAppOrderCard}
+                />
+              </div>
+
+              <div className="grid gap-2 sm:hidden">
+                {sequence.length > 1 ? (
+                  <button
+                    type="button"
+                    className="flex min-h-11 w-full items-center justify-center rounded-lg border border-emerald-700 bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm touch-manipulation hover:bg-emerald-700"
+                    onClick={() => setMobileReorderMaterial(material)}
+                  >
+                    Reihenfolge aendern
+                  </button>
+                ) : null}
+                <ul className="grid gap-2">
+                  {sequence.map((order, index) => {
+                    const posLabel = `${index + 1} von ${sequence.length}`;
+                    const oid = order.order_id ?? "";
+                    return (
+                      <li
+                        key={oid || `${material}-${index}`}
+                        className="flex rounded border border-emerald-200 bg-emerald-50/40 p-2.5 text-sm"
                       >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="18"
-                          height="18"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden
-                        >
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                        </svg>
-                      </button>
-                    ) : null}
-                    <div
-                      className={cn(canEdit && "pr-11")}
-                      onClick={
-                        canEdit && coarsePointer
-                          ? () => {
-                              setEditingOrder(order);
-                            }
-                          : undefined
-                      }
-                      onDoubleClick={
-                        canEdit && !coarsePointer
-                          ? () => {
-                              setEditingOrder(order);
-                            }
-                          : undefined
-                      }
-                      role={canEdit ? "button" : undefined}
-                      tabIndex={canEdit ? 0 : undefined}
-                      onKeyDown={
-                        canEdit
-                          ? (e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                setEditingOrder(order);
-                              }
-                            }
-                          : undefined
-                      }
-                    >
-                  <>
-                    <p className="font-semibold text-emerald-950">
-                      <span className="rounded bg-emerald-700 px-1.5 py-0.5 text-xs font-semibold uppercase text-white">
-                        App-Auftrag
-                      </span>{" "}
-                      <span className="text-lg font-semibold tracking-tight text-slate-900">
-                        {appOrderPrimaryLabel(order)}
-                      </span>
-                    </p>
-                    <p className="text-xs text-slate-700">
-                      <span className="font-medium">App-Disposition (nur Lager-App, gleiches Material):</span> Position{" "}
-                      <span className="font-mono">{positionLabel}</span> · Reihenfolge-Index{" "}
-                      <span className="font-mono">{order.priority_order ?? "—"}</span> — die Ampel wird im Backend nach
-                      dieser Reihenfolge fuer <span className="font-mono">{order.material_article_number}</span>{" "}
-                      berechnet (ohne ERP-Einzelreihen).
-                    </p>
-                    {order.order_id ? (
-                      <p className="text-xs text-slate-600">
-                        Technische Speicherreferenz (API): <span className="font-mono">{order.order_id}</span>
-                      </p>
-                    ) : null}
-                    <p>
-                      Material: <span className="font-mono">{order.material_article_number}</span>
-                      {order.material_description ? (
-                        <span className="text-slate-700"> — {order.material_description}</span>
-                      ) : null}
-                    </p>
-                    <p className="text-slate-700">
-                      Menge: {order.quantity} × {order.part_length_mm} mm · Kerf {order.kerf_mm} mm · Bedarf:{" "}
-                      {order.required_m.toLocaleString("de-DE", { maximumFractionDigits: 3 })} m (wie ERP-Sim{" "}
-                      <code className="text-xs">required_m</code>)
-                    </p>
-                    <p className="text-slate-700">
-                      <span className="font-medium">Workflow-Status (Lager-App):</span>{" "}
-                      {appOrderStatusLabelDe(order.status)} <span className="text-slate-500">({order.status})</span>
-                    </p>
-                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-slate-700">
-                      <span className="font-medium">Ampel (Disposition):</span>
-                      <TrafficLightIndicator trafficLight={order.traffic_light} />
-                    </p>
-                    {order.disposition_available_before_m != null ? (
-                      <p className="text-slate-700">
-                        <span className="font-medium">Verfuegbar vor diesem App-Auftrag (Stueckgut, sequentiell):</span>{" "}
-                        {order.disposition_available_before_m.toLocaleString("de-DE", {
-                          maximumFractionDigits: 3,
-                        })}{" "}
-                        m
-                        <span className="text-xs text-slate-500">
-                          {" "}
-                          — nur App-Reihenfolge; ERP-offene Auftraege sind als Pipeline aggregiert, keine gemischte
-                          Gesamtwarteschlange.
-                        </span>
-                      </p>
-                    ) : null}
-                    {order.customer_name ? (
-                      <p className="text-slate-600">Kunde (dispositiv): {order.customer_name}</p>
-                    ) : null}
-                    {order.due_date ? <p className="text-slate-600">Faellig (Wunsch): {order.due_date}</p> : null}
-                    {order.erp_order_number ? (
-                      <p className="text-xs text-slate-600">
-                        ERP-Referenz: <span className="font-mono">{order.erp_order_number}</span>
-                      </p>
-                    ) : null}
-                    <p className="text-xs text-slate-600">
-                      Reihenfolge am Material (App, niedrig = frueher; Drag &amp; Drop aendert persistiert):{" "}
-                      <span className="font-medium text-slate-800">{order.priority_order ?? "—"}</span>
-                    </p>
-                  </>
-                    </div>
-                  </div>
-                  );
-                }}
-              />
+                        <AppOrderListingCard
+                          order={order}
+                          positionLabel={posLabel}
+                          dragPeerCompact={false}
+                          dragActiveSimplified={false}
+                          reorderUiMode="default"
+                          canEdit={canEditAppOrder(order)}
+                          onEdit={setEditingOrder}
+                        />
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             </div>
           ))}
         </div>
       </section>
+
+      <MobileMaterialReorderSheet
+        materialArticleNumber={mobileReorderMaterial}
+        sequence={mobileReorderMaterial ? materialSequence(appOrders, mobileReorderMaterial) : []}
+        reorderDisabled={loading || reprioritizeBusyMaterial !== null}
+        isOrderDimmed={(o) => !matchesListingFilters(o)}
+        onClose={() => setMobileReorderMaterial(null)}
+        onCommitReorder={async (orderedIds) => {
+          if (!mobileReorderMaterial) {
+            return false;
+          }
+          return applyMaterialReorder(mobileReorderMaterial, orderedIds);
+        }}
+        onMaterialDragActiveChange={setDraggingMaterialKey}
+        renderCard={renderAppOrderCard}
+      />
 
       <OrderEditModal
         order={editingOrder}
