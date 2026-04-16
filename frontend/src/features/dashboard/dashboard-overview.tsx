@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { TrafficLightIndicator } from "@/components/shared/traffic-light-indicator";
@@ -101,15 +102,42 @@ export function DashboardOverview() {
 
   return (
     <div className="grid gap-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded border border-slate-200 p-3">
-          <p className="text-xs uppercase text-slate-500">Offene Auftraege</p>
-          <p className="text-2xl font-semibold">{overview?.open_orders_count ?? "-"}</p>
-        </div>
-        <div className="rounded border border-slate-200 p-3">
-          <p className="text-xs uppercase text-slate-500">Kritische Auftraege (rot)</p>
-          <p className="text-2xl font-semibold">{overview?.critical_orders_count ?? "-"}</p>
-        </div>
+      <div className="rounded border border-slate-200 p-3">
+        <p className="text-xs uppercase text-slate-500">Offene Auftraege</p>
+        <p className="text-2xl font-semibold">{overview?.open_orders_count ?? "-"}</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Link
+          href="/orders?traffic_light=red"
+          className="group block cursor-pointer rounded-lg border border-red-200/90 bg-white p-3 shadow-sm outline-none transition hover:border-red-300 hover:bg-red-50/60 hover:shadow-md active:scale-[0.99] active:bg-red-50/80"
+        >
+          <p className="text-xs uppercase text-red-800/90">Kritische Auftraege (rot)</p>
+          <p className="mt-1 text-2xl font-semibold text-slate-900">{overview?.red_count ?? "-"}</p>
+          <p className="mt-2 text-[11px] text-slate-600 group-hover:text-slate-800">
+            Zur gefilterten Auftragsuebersicht
+          </p>
+        </Link>
+        <Link
+          href="/orders?traffic_light=yellow"
+          className="group block cursor-pointer rounded-lg border border-amber-200/90 bg-white p-3 shadow-sm outline-none transition hover:border-amber-300 hover:bg-amber-50/60 hover:shadow-md active:scale-[0.99] active:bg-amber-50/80"
+        >
+          <p className="text-xs uppercase text-amber-900/90">Eingeschränkte Auftraege (gelb)</p>
+          <p className="mt-1 text-2xl font-semibold text-slate-900">{overview?.yellow_count ?? "-"}</p>
+          <p className="mt-2 text-[11px] text-slate-600 group-hover:text-slate-800">
+            Zur gefilterten Auftragsuebersicht
+          </p>
+        </Link>
+        <Link
+          href="/orders?traffic_light=green"
+          className="group block cursor-pointer rounded-lg border border-emerald-200/90 bg-white p-3 shadow-sm outline-none transition hover:border-emerald-300 hover:bg-emerald-50/60 hover:shadow-md active:scale-[0.99] active:bg-emerald-50/80"
+        >
+          <p className="text-xs uppercase text-emerald-900/90">Machbare Auftraege (gruen)</p>
+          <p className="mt-1 text-2xl font-semibold text-slate-900">{overview?.green_count ?? "-"}</p>
+          <p className="mt-2 text-[11px] text-slate-600 group-hover:text-slate-800">
+            Zur gefilterten Auftragsuebersicht
+          </p>
+        </Link>
       </div>
 
       <div className="grid gap-2">

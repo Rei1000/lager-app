@@ -223,7 +223,11 @@ export type CurrentUserDto = {
 
 export type DashboardOverviewDto = {
   open_orders_count: number;
+  /** gleichbedeutend mit red_count (API-Abwaertskompatibilitaet) */
   critical_orders_count: number;
+  red_count: number;
+  yellow_count: number;
+  green_count: number;
   open_orders: OrderDto[];
 };
 
