@@ -151,7 +151,9 @@ export function LoginForm() {
       >
         {submitting ? "Anmeldung..." : "Anmelden"}
       </button>
-      <MobileEntryQr targetUrl={mobileEntryUrl} />
+      <div className="hidden md:block">
+        <MobileEntryQr targetUrl={mobileEntryUrl} />
+      </div>
       {message ? <p className="text-sm text-slate-700">{message}</p> : null}
     </form>
   );
