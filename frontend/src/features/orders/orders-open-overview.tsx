@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AppOrderListingCard } from "@/features/orders/app-order-listing-card";
@@ -43,12 +44,25 @@ function canEditAppOrder(order: OrderDto): boolean {
   return order.status !== "done" && order.status !== "canceled";
 }
 
+const TRAFFIC_LIGHT_QUERY_VALUES = ["red", "yellow", "green"] as const;
+type TrafficLightQueryValue = (typeof TRAFFIC_LIGHT_QUERY_VALUES)[number];
+
+function parseTrafficLightQuery(value: string | null): TrafficLightQueryValue | "" {
+  if (!value) {
+    return "";
+  }
+  const v = value.trim().toLowerCase();
+  return TRAFFIC_LIGHT_QUERY_VALUES.includes(v as TrafficLightQueryValue) ? (v as TrafficLightQueryValue) : "";
+}
+
 type OrdersOpenOverviewProps = {
   /** Erhoehen, um App- und Simulator-Listen neu zu laden (z. B. nach neuem App-Auftrag). */
   listRefreshToken?: number;
 };
 
 export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [appOrders, setAppOrders] = useState<OrderDto[]>([]);
   const [simulatorRows, setSimulatorRows] = useState<SimulatorOpenOrderDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,6 +83,13 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
     dimension: "",
   });
   const [statusFilter, setStatusFilter] = useState("");
+
+  /** Direkt aus der URL abgeleitet (queryString als Abhaengigkeit: zuverlaessig bei Client-Navigation). */
+  const queryString = searchParams.toString();
+  const trafficLightFilter = useMemo(() => {
+    const params = new URLSearchParams(queryString);
+    return parseTrafficLightQuery(params.get("traffic_light"));
+  }, [queryString]);
 
   useEffect(() => {
     let active = true;
@@ -138,6 +159,12 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
       if (statusFilter && order.status !== statusFilter) {
         return false;
       }
+      if (trafficLightFilter) {
+        const tl = order.traffic_light?.trim().toLowerCase() ?? "";
+        if (tl !== trafficLightFilter) {
+          return false;
+        }
+      }
       if (!matchesArticleNumberSimulatorFilters(order.material_article_number.trim(), structuralFilters)) {
         return false;
       }
@@ -159,7 +186,7 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
         .toLowerCase();
       return hay.includes(q);
     },
-    [statusFilter, structuralFilters, materialFilter.textQuery]
+    [statusFilter, trafficLightFilter, structuralFilters, materialFilter.textQuery]
   );
 
   const materialBlocks = useMemo(() => {
@@ -168,9 +195,18 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
     );
     return materials
       .map((material) => {
-        const sequence = materialSequence(appOrders, material);
-        const show = sequence.some((o) => matchesListingFilters(o));
-        return { material, sequence, show };
+        const fullSequence = materialSequence(appOrders, material);
+        const visibleSequence = fullSequence.filter((o) => matchesListingFilters(o));
+        /** Repriorisierung im Backend erfordert die vollstaendige ID-Liste je Material — nur bei ungefilterter Sicht erlaubt. */
+        const reorderAllowed =
+          fullSequence.length >= 2 && fullSequence.length === visibleSequence.length;
+        return {
+          material,
+          fullSequence,
+          visibleSequence,
+          show: visibleSequence.length > 0,
+          reorderAllowed,
+        };
       })
       .filter((b) => b.show);
   }, [appOrders, matchesListingFilters]);
@@ -213,6 +249,9 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
   }, []);
 
   const visibleSimulatorOrders = useMemo(() => {
+    if (trafficLightFilter) {
+      return [];
+    }
     const q = materialFilter.textQuery.trim().toLowerCase();
     return [...simulatorRows]
       .filter((order) => (statusFilter ? order.status === statusFilter : true))
@@ -235,7 +274,25 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
         return hay.includes(q);
       })
       .sort((a, b) => a.order_no.localeCompare(b.order_no, "de"));
-  }, [simulatorRows, statusFilter, structuralFilters, materialFilter.textQuery]);
+  }, [simulatorRows, statusFilter, trafficLightFilter, structuralFilters, materialFilter.textQuery]);
+
+  const trafficLightBannerClass =
+    trafficLightFilter === "red"
+      ? "border-l-4 border-red-600 bg-red-50 text-red-950"
+      : trafficLightFilter === "yellow"
+        ? "border-l-4 border-amber-500 bg-amber-50 text-amber-950"
+        : trafficLightFilter === "green"
+          ? "border-l-4 border-emerald-600 bg-emerald-50 text-emerald-950"
+          : "";
+
+  const trafficLightLabel =
+    trafficLightFilter === "red"
+      ? "Rot"
+      : trafficLightFilter === "yellow"
+        ? "Gelb"
+        : trafficLightFilter === "green"
+          ? "Gruen"
+          : "";
 
   return (
     <div className="grid gap-6">
@@ -247,6 +304,31 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
           dieselben wie im ERP-Produktivsystem.
         </p>
       </div>
+
+      {trafficLightFilter ? (
+        <div
+          className={`flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 shadow-sm ${trafficLightBannerClass}`}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="min-w-0">
+            <p className="text-sm font-semibold tracking-tight">Ampel: {trafficLightLabel}</p>
+            <p className="mt-0.5 text-xs font-normal opacity-90">
+              Es werden nur App-Auftraege mit passendem <code className="rounded bg-black/5 px-1 py-0.5 text-[11px]">traffic_light</code>{" "}
+              angezeigt. ERP-Simulator-Auftraege sind bei diesem Filter ausgeblendet.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="shrink-0 rounded-md border border-black/10 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm touch-manipulation hover:bg-white/90"
+            onClick={() => {
+              router.replace("/orders", { scroll: false });
+            }}
+          >
+            Ampel-Filter entfernen
+          </button>
+        </div>
+      ) : null}
 
       {loading ? <p className="text-sm text-slate-600">Lade Daten...</p> : null}
 
@@ -277,6 +359,12 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
             ))}
           </select>
         </label>
+        {trafficLightFilter ? (
+          <p className="text-xs text-slate-600">
+            Ampel-Filter aktiv (URL: <code className="text-[11px]">?traffic_light={trafficLightFilter}</code>) — gleiche
+            Anzeige wie oben; ERP-Simulator bleibt ausgeblendet.
+          </p>
+        ) : null}
       </div>
 
       <section className="grid gap-3" aria-labelledby="app-orders-heading">
@@ -307,7 +395,7 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
           </p>
         ) : null}
         <div className="grid gap-6">
-          {materialBlocks.map(({ material, sequence }) => (
+          {materialBlocks.map(({ material, visibleSequence, reorderAllowed }) => (
             <div
               key={material}
               className={
@@ -320,7 +408,7 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
             >
               <p className="text-xs font-medium text-slate-700">
                 Material: <span className="font-mono">{material}</span>
-                {sequence.length > 1 ? (
+                {reorderAllowed && visibleSequence.length > 1 ? (
                   <>
                     <span className="hidden font-normal text-slate-600 sm:inline">
                       {" "}
@@ -341,9 +429,9 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
               <div className="hidden sm:block">
                 <AppOrdersMaterialDndBlock
                   materialArticleNumber={material}
-                  sequence={sequence}
-                  reorderDisabled={loading || reprioritizeBusyMaterial !== null || sequence.length < 2}
-                  isOrderDimmed={(o) => !matchesListingFilters(o)}
+                  sequence={visibleSequence}
+                  reorderDisabled={loading || reprioritizeBusyMaterial !== null || !reorderAllowed}
+                  isOrderDimmed={() => false}
                   onDragEndReorder={async (ids) => {
                     await applyMaterialReorder(material, ids);
                   }}
@@ -353,7 +441,7 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
               </div>
 
               <div className="grid gap-2 sm:hidden">
-                {sequence.length > 1 ? (
+                {reorderAllowed ? (
                   <button
                     type="button"
                     className="flex min-h-11 w-full items-center justify-center rounded-lg border border-emerald-700 bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm touch-manipulation hover:bg-emerald-700"
@@ -363,8 +451,8 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
                   </button>
                 ) : null}
                 <ul className="grid gap-2">
-                  {sequence.map((order, index) => {
-                    const posLabel = `${index + 1} von ${sequence.length}`;
+                  {visibleSequence.map((order, index) => {
+                    const posLabel = `${index + 1} von ${visibleSequence.length}`;
                     const oid = order.order_id ?? "";
                     return (
                       <li
@@ -394,7 +482,7 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
         materialArticleNumber={mobileReorderMaterial}
         sequence={mobileReorderMaterial ? materialSequence(appOrders, mobileReorderMaterial) : []}
         reorderDisabled={loading || reprioritizeBusyMaterial !== null}
-        isOrderDimmed={(o) => !matchesListingFilters(o)}
+        isOrderDimmed={() => false}
         onClose={() => setMobileReorderMaterial(null)}
         onCommitReorder={async (orderedIds) => {
           if (!mobileReorderMaterial) {
