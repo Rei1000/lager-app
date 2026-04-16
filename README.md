@@ -47,6 +47,22 @@ Start
 
 docker compose up –build
 
+**Schneller lokaler Neustart (empfohlen für die Entwicklung)**  
+Das Skript `scripts/start-app.sh` startet Docker und das Frontend; **standardmäßig ohne Image-Rebuild** (kein erneutes `pip install` im Dockerfile):
+
+```bash
+./scripts/start-app.sh localhost
+```
+
+**Backend-Image bewusst neu bauen** (z. B. nach Änderung von `backend/pyproject.toml` oder Dockerfile):
+
+```bash
+./scripts/start-app.sh localhost --rebuild
+# oder: ./scripts/start-app.sh localhost --build
+```
+
+Weitere Modi: `lan`, `tailscale` — dieselben Optionen `--rebuild` / `--build` und optional `--with-testserver` gelten analog.
+
 ⸻
 
 Hinweis zum Startverhalten:

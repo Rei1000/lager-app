@@ -9,26 +9,50 @@ RUN_DIR="$ROOT_DIR/.run"
 LOG_DIR="$ROOT_DIR/.run/logs"
 
 MODE="${1:-}"
+[[ -n "${1:-}" ]] && shift || true
+
+REBUILD=0
 WITH_TESTSERVER="${WITH_TESTSERVER:-0}"
-if [[ "${2:-}" == "--with-testserver" ]] || [[ "${2:-}" == "-t" ]]; then
-  WITH_TESTSERVER=1
-fi
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --rebuild|--build)
+      REBUILD=1
+      ;;
+    --with-testserver|-t)
+      WITH_TESTSERVER=1
+      ;;
+    *)
+      printf '[start-app] FEHLER: Unbekanntes Argument: %s (erlaubt: --rebuild, --build, --with-testserver, -t)\n' "$1" >&2
+      exit 1
+      ;;
+  esac
+  shift
+done
 
 usage() {
   cat <<'EOF'
 Verwendung:
-  ./scripts/start-app.sh localhost [--with-testserver]
-  ./scripts/start-app.sh lan [--with-testserver]
-  ./scripts/start-app.sh tailscale [--with-testserver]
+  ./scripts/start-app.sh localhost [OPTIONEN]
+  ./scripts/start-app.sh lan [OPTIONEN]
+  ./scripts/start-app.sh tailscale [OPTIONEN]
 
 Modi:
   localhost  Start fuer lokale Nutzung nur auf dem Mac (localhost)
   lan        Start fuer Nutzung im Heimnetz (LAN-IP des Macs)
   tailscale  Ermittelt automatisch die Tailscale-IP und setzt Frontend-ENV auf diese IP
 
-Optional:
-  --with-testserver  Startet zusaetzlich python3 -m http.server 9999
-  WITH_TESTSERVER=1  Alternative zum Flag
+Optionen (beliebige Reihenfolge):
+  (keine)       Schneller Neustart: docker compose up ohne --build (kein Image-Rebuild)
+  --rebuild     Backend-Image neu bauen (pip install im Dockerfile), wie frueher bei jedem Start
+  --build       Alias fuer --rebuild
+  --with-testserver, -t
+                Startet zusaetzlich python3 -m http.server 9999
+  WITH_TESTSERVER=1  Alternative zum Testserver-Flag
+
+Beispiele:
+  ./scripts/start-app.sh localhost
+  ./scripts/start-app.sh localhost --rebuild
+  ./scripts/start-app.sh lan --with-testserver
 EOF
 }
 
@@ -190,10 +214,15 @@ if [[ "$FRONTEND_ORIGIN" != "http://localhost:3001" ]]; then
   CORS_ALLOW_ORIGINS="${CORS_ALLOW_ORIGINS},${FRONTEND_ORIGIN}"
 fi
 
-log "Docker Backend wird neu gestartet (down + up -d --build)"
 cd "$ROOT_DIR"
 CORS_ALLOW_ORIGINS="$CORS_ALLOW_ORIGINS" docker compose down
-CORS_ALLOW_ORIGINS="$CORS_ALLOW_ORIGINS" docker compose up -d --build
+if [[ "$REBUILD" == "1" ]]; then
+  log "Docker: compose up -d --build (Backend-Image wird neu gebaut, inkl. pip install im Dockerfile)"
+  CORS_ALLOW_ORIGINS="$CORS_ALLOW_ORIGINS" docker compose up -d --build
+else
+  log "Docker: compose up -d ohne --build (bestehendes Backend-Image, schneller Neustart)"
+  CORS_ALLOW_ORIGINS="$CORS_ALLOW_ORIGINS" docker compose up -d
+fi
 
 log "Frontend Build-Cache (.next) wird geloescht"
 rm -rf "$FRONTEND_DIR/.next"
