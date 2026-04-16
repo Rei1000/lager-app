@@ -55,6 +55,23 @@ function parseTrafficLightQuery(value: string | null): TrafficLightQueryValue | 
   return TRAFFIC_LIGHT_QUERY_VALUES.includes(v as TrafficLightQueryValue) ? (v as TrafficLightQueryValue) : "";
 }
 
+/** Select-Wert fuer Auftraege ohne customer_name (intern, Kollision mit echten Namen praktisch ausgeschlossen). */
+const CUSTOMER_FILTER_NONE = "__ohne_kunde__";
+
+function matchesCustomerFilter(
+  customerFilter: string,
+  customerName: string | null | undefined
+): boolean {
+  if (!customerFilter) {
+    return true;
+  }
+  const name = customerName?.trim() ?? "";
+  if (customerFilter === CUSTOMER_FILTER_NONE) {
+    return name === "";
+  }
+  return name === customerFilter;
+}
+
 type OrdersOpenOverviewProps = {
   /** Erhoehen, um App- und Simulator-Listen neu zu laden (z. B. nach neuem App-Auftrag). */
   listRefreshToken?: number;
@@ -83,6 +100,7 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
     dimension: "",
   });
   const [statusFilter, setStatusFilter] = useState("");
+  const [customerFilter, setCustomerFilter] = useState("");
 
   /** Direkt aus der URL abgeleitet (queryString als Abhaengigkeit: zuverlaessig bei Client-Navigation). */
   const queryString = searchParams.toString();
@@ -145,6 +163,32 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
     return [...unique].sort((a, b) => a.localeCompare(b, "de"));
   }, [appOrders, simulatorRows]);
 
+  /** Eindeutige Kundennamen aus geladenen Listen (kein Backend); optional „Ohne Kunde“. */
+  const customerSelectOptions = useMemo(() => {
+    const names = new Set<string>();
+    let hasEmpty = false;
+    for (const o of appOrders) {
+      const n = o.customer_name?.trim() ?? "";
+      if (n) {
+        names.add(n);
+      } else {
+        hasEmpty = true;
+      }
+    }
+    for (const o of simulatorRows) {
+      const n = o.customer_name?.trim() ?? "";
+      if (n) {
+        names.add(n);
+      } else {
+        hasEmpty = true;
+      }
+    }
+    return {
+      sortedNames: [...names].sort((a, b) => a.localeCompare(b, "de")),
+      includeOhneKunde: hasEmpty,
+    };
+  }, [appOrders, simulatorRows]);
+
   const structuralFilters: SimulatorSearchFilters = useMemo(
     () => ({
       mainGroup: materialFilter.mainGroup,
@@ -164,6 +208,9 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
         if (tl !== trafficLightFilter) {
           return false;
         }
+      }
+      if (!matchesCustomerFilter(customerFilter, order.customer_name)) {
+        return false;
       }
       if (!matchesArticleNumberSimulatorFilters(order.material_article_number.trim(), structuralFilters)) {
         return false;
@@ -186,7 +233,7 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
         .toLowerCase();
       return hay.includes(q);
     },
-    [statusFilter, trafficLightFilter, structuralFilters, materialFilter.textQuery]
+    [statusFilter, trafficLightFilter, customerFilter, structuralFilters, materialFilter.textQuery]
   );
 
   const materialBlocks = useMemo(() => {
@@ -274,7 +321,7 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
         return hay.includes(q);
       })
       .sort((a, b) => a.order_no.localeCompare(b.order_no, "de"));
-  }, [simulatorRows, statusFilter, trafficLightFilter, structuralFilters, materialFilter.textQuery]);
+  }, [simulatorRows, statusFilter, customerFilter, trafficLightFilter, structuralFilters, materialFilter.textQuery]);
 
   const trafficLightBannerClass =
     trafficLightFilter === "red"
@@ -334,7 +381,7 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
 
       <div className="grid gap-3 rounded border border-slate-200 p-3">
         <p className="text-xs font-medium text-slate-600">
-          Filter gelten fuer <strong>beide</strong> Listen: Volltext, Hauptgruppe/Material/Dimension (ueber
+          Filter gelten fuer <strong>beide</strong> Listen: Volltext, Kunde, Hauptgruppe/Material/Dimension (ueber
           Artikelnummer, Schema wie Simulator) und Status (exakter Code; App- und ERP-Sim-Status koennen sich
           unterscheiden).
         </p>
@@ -345,9 +392,27 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
           textQueryPlaceholder="APP-Nummer, Artikel, Status ..."
         />
         <label className="grid max-w-md gap-1">
+          Kunde
+          <select
+            className="h-10 min-h-[44px] w-full max-w-md rounded-md border border-slate-300 px-3 text-sm"
+            value={customerFilter}
+            onChange={(e) => setCustomerFilter(e.target.value)}
+          >
+            <option value="">Alle</option>
+            {customerSelectOptions.includeOhneKunde ? (
+              <option value={CUSTOMER_FILTER_NONE}>Ohne Kunde</option>
+            ) : null}
+            {customerSelectOptions.sortedNames.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid max-w-md gap-1">
           Status (App und ERP-Simulator, gleicher Code-Vergleich)
           <select
-            className="h-10 rounded-md border border-slate-300 px-3 text-sm"
+            className="h-10 min-h-[44px] w-full max-w-md rounded-md border border-slate-300 px-3 text-sm"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
