@@ -97,4 +97,7 @@ class OrderResponse(BaseModel):
 class DashboardOverviewResponse(BaseModel):
     open_orders_count: int
     critical_orders_count: int
+    red_count: int
+    yellow_count: int
+    green_count: int
     open_orders: list[OrderResponse]

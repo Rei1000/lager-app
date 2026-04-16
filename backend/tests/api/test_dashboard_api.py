@@ -38,6 +38,9 @@ def test_dashboard_overview_endpoint_returns_open_orders_and_metrics() -> None:
                 open_orders=orders,
                 open_orders_count=2,
                 critical_orders_count=1,
+                red_count=1,
+                yellow_count=0,
+                green_count=1,
             )
 
     app.dependency_overrides[get_dashboard_overview_use_case] = lambda: FakeDashboardUseCase()
@@ -49,5 +52,8 @@ def test_dashboard_overview_endpoint_returns_open_orders_and_metrics() -> None:
     payload = response.json()
     assert payload["open_orders_count"] == 2
     assert payload["critical_orders_count"] == 1
+    assert payload["red_count"] == 1
+    assert payload["yellow_count"] == 0
+    assert payload["green_count"] == 1
     assert payload["open_orders"][1]["traffic_light"] == "red"
     app.dependency_overrides.clear()

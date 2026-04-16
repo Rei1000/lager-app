@@ -24,5 +24,8 @@ def get_dashboard_overview(
     return DashboardOverviewResponse(
         open_orders_count=overview.open_orders_count,
         critical_orders_count=overview.critical_orders_count,
+        red_count=overview.red_count,
+        yellow_count=overview.yellow_count,
+        green_count=overview.green_count,
         open_orders=[OrderResponse.from_domain(order) for order in overview.open_orders],
     )

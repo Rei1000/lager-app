@@ -388,7 +388,10 @@ def get_get_order_detail_use_case() -> GetOrderDetailUseCase:
 
 
 def get_dashboard_overview_use_case() -> GetDashboardOverviewUseCase:
-    return GetDashboardOverviewUseCase(order_repository=_order_repository)
+    return GetDashboardOverviewUseCase(
+        order_repository=_order_repository,
+        stock_snapshot_port=_stock_snapshot_port,
+    )
 
 
 def get_login_use_case() -> LoginUseCase:

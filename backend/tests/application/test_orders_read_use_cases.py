@@ -105,7 +105,8 @@ def test_get_order_detail_use_case_returns_one_order() -> None:
     assert result.disposition_available_before_mm == 50_000
 
 
-def test_dashboard_overview_use_case_counts_open_and_critical_orders() -> None:
+def test_dashboard_overview_use_case_counts_open_and_traffic_lights_after_disposition() -> None:
+    """Zaehler entsprechen evaluate_orders_sequentially (wie GET /orders), nicht dem persistierten traffic_light."""
     repo = FakeOrderRepository(
         orders=[
             _make_order("A1", "ART-001", "checked", 1, TrafficLight.GREEN),
@@ -113,9 +114,21 @@ def test_dashboard_overview_use_case_counts_open_and_critical_orders() -> None:
             _make_order("A3", "ART-001", "done", 3, TrafficLight.RED),
         ]
     )
-    use_case = GetDashboardOverviewUseCase(order_repository=repo)
+    # Je 1000 mm Bedarf; Pool 1500 mm: erster Auftrag gruen, zweiter rot.
+    stock = FakeStockSnapshotPort(
+        snapshot=StockSnapshot(
+            erp_stock_mm=1_500,
+            open_erp_orders_mm=0,
+            app_reservations_mm=0,
+            rest_stock_mm=0,
+        )
+    )
+    use_case = GetDashboardOverviewUseCase(order_repository=repo, stock_snapshot_port=stock)
 
     overview = use_case.execute()
 
     assert overview.open_orders_count == 2
     assert overview.critical_orders_count == 1
+    assert overview.red_count == 1
+    assert overview.yellow_count == 0
+    assert overview.green_count == 1

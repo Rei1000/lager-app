@@ -18,6 +18,25 @@ class DashboardOverviewResult:
     open_orders: list[AppOrder]
     open_orders_count: int
     critical_orders_count: int
+    red_count: int
+    yellow_count: int
+    green_count: int
+
+
+def _count_traffic_lights(orders: list[AppOrder]) -> tuple[int, int, int]:
+    """Zaehlt Ampel-Stati nach Domain-Auswertung (gleiche Basis wie Order-Liste)."""
+    red = yellow = green = 0
+    for order in orders:
+        if not order.traffic_light:
+            continue
+        value = order.traffic_light.value
+        if value == "red":
+            red += 1
+        elif value == "yellow":
+            yellow += 1
+        elif value == "green":
+            green += 1
+    return red, yellow, green
 
 
 class ListOrdersDetailedUseCase:
@@ -81,17 +100,26 @@ class GetOrderDetailUseCase:
 
 
 class GetDashboardOverviewUseCase:
-    def __init__(self, order_repository: OrderRepositoryPort) -> None:
+    def __init__(
+        self,
+        order_repository: OrderRepositoryPort,
+        stock_snapshot_port: StockSnapshotPort,
+    ) -> None:
         self._order_repository = order_repository
+        self._stock_snapshot_port = stock_snapshot_port
 
     def execute(self) -> DashboardOverviewResult:
         orders = self._order_repository.list_all()
         open_orders = [order for order in orders if order.status not in {"done", "canceled"}]
-        critical_orders_count = sum(1 for order in open_orders if order.traffic_light and order.traffic_light.value == "red")
+        enriched_open = _enrich_orders_with_disposition(open_orders, self._stock_snapshot_port)
+        red_count, yellow_count, green_count = _count_traffic_lights(enriched_open)
         return DashboardOverviewResult(
-            open_orders=open_orders,
-            open_orders_count=len(open_orders),
-            critical_orders_count=critical_orders_count,
+            open_orders=enriched_open,
+            open_orders_count=len(enriched_open),
+            critical_orders_count=red_count,
+            red_count=red_count,
+            yellow_count=yellow_count,
+            green_count=green_count,
         )
 
 
