@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import {
   appOrderStatusLabelDe,
   trafficLightLabelDe,
@@ -11,7 +12,7 @@ import {
   matchesArticleNumberSimulatorFilters,
   type SimulatorSearchFilters,
 } from "@/features/orders/simulator-material-search-constants";
-import { fetchOrders, fetchSimulatorOpenOrders } from "@/lib/api-client";
+import { ApiClientError, fetchOrders, fetchSimulatorOpenOrders, reprioritizeOrders } from "@/lib/api-client";
 import type { OrderDto, SimulatorOpenOrderDto } from "@/lib/types";
 
 function formatRequiredMeters(requiredM: number): string {
@@ -20,6 +21,23 @@ function formatRequiredMeters(requiredM: number): string {
 
 function appOrderPrimaryLabel(order: OrderDto): string {
   return order.display_order_code?.trim() || order.order_id || "—";
+}
+
+/** Gleiche Sortierung wie Backend-Disposition: Material, dann priority_order. */
+function sortAppOrdersForDisposition(orders: OrderDto[]): OrderDto[] {
+  return [...orders].sort((a, b) => {
+    const mat = a.material_article_number.localeCompare(b.material_article_number, "de");
+    if (mat !== 0) {
+      return mat;
+    }
+    return (a.priority_order ?? 1_000_000_000) - (b.priority_order ?? 1_000_000_000);
+  });
+}
+
+function materialSequence(allAppOrders: OrderDto[], materialArticleNumber: string): OrderDto[] {
+  return sortAppOrdersForDisposition(
+    allAppOrders.filter((o) => o.material_article_number === materialArticleNumber && o.order_id)
+  );
 }
 
 type OrdersOpenOverviewProps = {
@@ -33,6 +51,9 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
   const [loading, setLoading] = useState(true);
   const [appError, setAppError] = useState<string | null>(null);
   const [simulatorError, setSimulatorError] = useState<string | null>(null);
+  const [reprioritizeError, setReprioritizeError] = useState<string | null>(null);
+  const [reprioritizeBusyKey, setReprioritizeBusyKey] = useState<string | null>(null);
+  const [reloadAfterReprioritize, setReloadAfterReprioritize] = useState(0);
 
   const [materialFilter, setMaterialFilter] = useState({
     textQuery: "",
@@ -76,7 +97,40 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
     return () => {
       active = false;
     };
-  }, [listRefreshToken]);
+  }, [listRefreshToken, reloadAfterReprioritize]);
+
+  const moveAppOrderWithinMaterial = useCallback(
+    async (materialArticleNumber: string, orderId: string, direction: -1 | 1) => {
+      setReprioritizeError(null);
+      const seq = materialSequence(appOrders, materialArticleNumber);
+      const idx = seq.findIndex((o) => o.order_id === orderId);
+      if (idx < 0) {
+        return;
+      }
+      const swap = idx + direction;
+      if (swap < 0 || swap >= seq.length) {
+        return;
+      }
+      const next = [...seq];
+      [next[idx], next[swap]] = [next[swap], next[idx]];
+      const busy = `${materialArticleNumber}:${orderId}`;
+      setReprioritizeBusyKey(busy);
+      try {
+        await reprioritizeOrders({
+          material_article_number: materialArticleNumber,
+          ordered_ids: next.map((o) => o.order_id!),
+        });
+        setReloadAfterReprioritize((n) => n + 1);
+      } catch (e) {
+        const msg =
+          e instanceof ApiClientError ? e.message : e instanceof Error ? e.message : "Reihung konnte nicht gespeichert werden";
+        setReprioritizeError(msg);
+      } finally {
+        setReprioritizeBusyKey(null);
+      }
+    },
+    [appOrders]
+  );
 
   /** Vereinigung der Status-Codes aus App und ERP-Sim (gleiche Filtersemantik: exakter String-Vergleich). */
   const combinedStatusOptions = useMemo(() => {
@@ -124,7 +178,13 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
           .toLowerCase();
         return hay.includes(q);
       })
-      .sort((a, b) => appOrderPrimaryLabel(a).localeCompare(appOrderPrimaryLabel(b), "de"));
+      .sort((a, b) => {
+        const mat = a.material_article_number.localeCompare(b.material_article_number, "de");
+        if (mat !== 0) {
+          return mat;
+        }
+        return (a.priority_order ?? 1_000_000_000) - (b.priority_order ?? 1_000_000_000);
+      });
   }, [appOrders, statusFilter, materialFilter.textQuery, structuralFilters]);
 
   const visibleSimulatorOrders = useMemo(() => {
@@ -201,9 +261,15 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
         <p className="text-xs text-slate-600">
           Gespeicherte Dispositionsauftraege. Die <strong>Ampel</strong> beschreibt die Lage in der{" "}
           <strong>Reihenfolge / Disposition</strong> am Material (nicht dieselbe Frage wie die Planungsvorschau beim
-          Entwurf).
+          Entwurf). <strong>Nur App-Auftraege</strong> koennen hier untereinander per Hoch/Runter neu gereiht werden
+          (materialbezogen); ERP-Simulator-Auftraege haben eine eigene Liste und bleiben read-only.
         </p>
         {appError ? <p className="text-sm text-red-600">Fehler: {appError}</p> : null}
+        {reprioritizeError ? (
+          <p className="text-sm text-red-600" role="alert">
+            Reihung: {reprioritizeError}
+          </p>
+        ) : null}
         {!loading && !appError && appOrders.length === 0 ? (
           <p className="rounded border border-dashed border-slate-300 p-3 text-sm text-slate-600">
             Keine App-Auftraege vorhanden.
@@ -215,7 +281,21 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
           </p>
         ) : null}
         <ul className="grid gap-2">
-          {visibleAppOrders.map((order) => (
+          {visibleAppOrders.map((order) => {
+            const fullMat = materialSequence(appOrders, order.material_article_number);
+            const posIndex = order.order_id
+              ? fullMat.findIndex((o) => o.order_id === order.order_id)
+              : -1;
+            const posLabel =
+              posIndex >= 0 ? `${posIndex + 1} von ${fullMat.length}` : "—";
+            const rowBusy = reprioritizeBusyKey === `${order.material_article_number}:${order.order_id ?? ""}`;
+            const anyReprioritizeBusy = reprioritizeBusyKey !== null;
+            const canMove =
+              Boolean(order.order_id) && fullMat.length > 1 && !anyReprioritizeBusy && !loading;
+            const upDisabled = !canMove || posIndex <= 0;
+            const downDisabled = !canMove || posIndex < 0 || posIndex >= fullMat.length - 1;
+
+            return (
             <li
               key={order.order_id ?? `${order.material_article_number}-${order.priority_order}`}
               className="rounded border border-emerald-200 bg-emerald-50/40 p-3 text-sm sm:p-4"
@@ -228,6 +308,36 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
                   {appOrderPrimaryLabel(order)}
                 </span>
               </p>
+              <p className="text-xs text-slate-700">
+                <span className="font-medium">App-Disposition (nur Lager-App, gleiches Material):</span> Position{" "}
+                <span className="font-mono">{posLabel}</span> · Reihenfolge-Index{" "}
+                <span className="font-mono">{order.priority_order ?? "—"}</span> — die Ampel wird im Backend nach dieser
+                Reihenfolge fuer <span className="font-mono">{order.material_article_number}</span> berechnet (ohne
+                ERP-Einzelreihen).
+              </p>
+              {order.order_id ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    disabled={upDisabled}
+                    className="min-h-9 px-3 py-1.5 text-xs"
+                    aria-label="App-Auftrag in der Disposition nach oben"
+                    onClick={() => void moveAppOrderWithinMaterial(order.material_article_number, order.order_id!, -1)}
+                  >
+                    Hoch
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={downDisabled}
+                    className="min-h-9 px-3 py-1.5 text-xs"
+                    aria-label="App-Auftrag in der Disposition nach unten"
+                    onClick={() => void moveAppOrderWithinMaterial(order.material_article_number, order.order_id!, 1)}
+                  >
+                    Runter
+                  </Button>
+                  {rowBusy ? <span className="text-xs text-slate-600">Speichere …</span> : null}
+                </div>
+              ) : null}
               {order.order_id ? (
                 <p className="text-xs text-slate-600">
                   Technische Speicherreferenz (API): <span className="font-mono">{order.order_id}</span>
@@ -252,6 +362,20 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
                 <span className="font-medium">Ampel (Disposition):</span> {trafficLightLabelDe(order.traffic_light)}
                 {order.traffic_light ? <span className="text-slate-500"> ({order.traffic_light})</span> : null}
               </p>
+              {order.disposition_available_before_m != null ? (
+                <p className="text-slate-700">
+                  <span className="font-medium">Verfuegbar vor diesem App-Auftrag (Stueckgut, sequentiell):</span>{" "}
+                  {order.disposition_available_before_m.toLocaleString("de-DE", {
+                    maximumFractionDigits: 3,
+                  })}{" "}
+                  m
+                  <span className="text-xs text-slate-500">
+                    {" "}
+                    — nur App-Reihenfolge; ERP-offene Auftraege sind als Pipeline aggregiert, keine gemischte
+                    Gesamtwarteschlange.
+                  </span>
+                </p>
+              ) : null}
               {order.customer_name ? (
                 <p className="text-slate-600">
                   Kunde (dispositiv): {order.customer_name}
@@ -266,11 +390,12 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
                 </p>
               ) : null}
               <p className="text-xs text-slate-600">
-                Reihenfolge am Material (App, automatisch, niedrig = frueher):{" "}
+                Reihenfolge am Material (App, niedrig = frueher; Hoch/Runter aendert persistiert):{" "}
                 <span className="font-medium text-slate-800">{order.priority_order ?? "—"}</span>
               </p>
             </li>
-          ))}
+            );
+          })}
         </ul>
       </section>
 
@@ -280,7 +405,8 @@ export function OrdersOpenOverview({ listRefreshToken = 0 }: OrdersOpenOverviewP
         </h3>
         <p className="text-xs text-slate-600">
           Entspricht offenen ERP-Demo-Auftraegen (z. B. Sage-Simulator). Nicht mit App-<strong>APP-…</strong>-Nummern
-          verwechseln.
+          verwechseln. Diese Liste ist <strong>read-only</strong>; die Reihenfolge der ERP-Demo-Auftraege wird hier nicht
+          geaendert und bildet <strong>keine</strong> gemeinsame Gesamt-Warteschlange mit den App-Auftraegen ab.
         </p>
         {simulatorError ? <p className="text-sm text-red-600">Fehler: {simulatorError}</p> : null}
         {!loading && !simulatorError && simulatorRows.length === 0 ? (

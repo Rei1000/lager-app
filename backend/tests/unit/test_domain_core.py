@@ -127,13 +127,38 @@ def test_sequential_evaluation_is_priority_order_based() -> None:
         orders=[second, first],
         erp_stock_mm=8_000,
         open_erp_orders_mm=0,
-        app_reservations_mm=0,
         rest_stock_mm=0,
     )
 
     assert evaluated[0].priority_order == 1
     assert evaluated[0].traffic_light is TrafficLight.GREEN
+    assert evaluated[0].disposition_available_before_mm == 8_000
     assert evaluated[1].traffic_light is TrafficLight.RED
+    assert evaluated[1].disposition_available_before_mm == 3_000
+
+
+def test_sequential_evaluation_no_exception_when_net_stock_negative() -> None:
+    """Globale Unterdeckung (ERP-Pipeline > Stückgut) darf keine ValueError auslösen."""
+    first = AppOrder(
+        material_article_number="ART-001",
+        quantity=1,
+        part_length_mm=1000,
+        kerf_mm=0,
+        include_rest_stock=False,
+        priority_order=1,
+    )
+    evaluated = evaluate_orders_sequentially(
+        orders=[first],
+        erp_stock_mm=1_000,
+        open_erp_orders_mm=5_000,
+        rest_stock_mm=0,
+    )
+    assert evaluated[0].traffic_light is TrafficLight.RED
+    assert evaluated[0].disposition_available_before_mm == 0
+
+
+def test_calculate_traffic_light_negative_available_does_not_raise() -> None:
+    assert calculate_traffic_light(500, -2_000, -2_000, False) is TrafficLight.RED
 
 
 def test_sequential_evaluation_requires_same_material() -> None:
@@ -159,7 +184,6 @@ def test_sequential_evaluation_requires_same_material() -> None:
             orders=[first, second],
             erp_stock_mm=5_000,
             open_erp_orders_mm=0,
-            app_reservations_mm=0,
             rest_stock_mm=0,
         )
 
@@ -186,7 +210,6 @@ def test_orders_without_priority_are_processed_after_prioritized_orders() -> Non
         orders=[unprioritized, prioritized],
         erp_stock_mm=5_000,
         open_erp_orders_mm=0,
-        app_reservations_mm=0,
         rest_stock_mm=0,
     )
 
@@ -218,7 +241,6 @@ def test_rest_stock_has_no_effect_when_option_is_disabled_for_all_orders() -> No
         orders=[first, second],
         erp_stock_mm=6_000,
         open_erp_orders_mm=0,
-        app_reservations_mm=0,
         rest_stock_mm=10_000,
     )
 
@@ -302,7 +324,6 @@ def test_sequential_evaluation_consumes_rest_stock_for_following_orders() -> Non
         orders=[first, second],
         erp_stock_mm=3_000,
         open_erp_orders_mm=0,
-        app_reservations_mm=0,
         rest_stock_mm=6_000,
     )
 

@@ -29,8 +29,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="de">
-      <body>
+    <html lang="de" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <AppChrome>{children}</AppChrome>
         <PwaRegister />
       </body>

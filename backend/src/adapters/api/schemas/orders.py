@@ -51,6 +51,8 @@ class OrderResponse(BaseModel):
     required_m: float
     customer_name: str | None
     due_date: date | None
+    disposition_available_before_mm: int | None = None
+    disposition_available_before_m: float | None = None
 
     @classmethod
     def from_domain(cls, order: AppOrder) -> "OrderResponse":
@@ -59,6 +61,8 @@ class OrderResponse(BaseModel):
         else:
             display = (order.order_id or "").strip()
         req_m = round(order.total_demand_mm / 1000.0, 6)
+        disp_mm = order.disposition_available_before_mm
+        disp_m = round(disp_mm / 1000.0, 6) if disp_mm is not None else None
         return cls(
             order_id=order.order_id,
             display_order_code=display,
@@ -77,6 +81,8 @@ class OrderResponse(BaseModel):
             required_m=req_m,
             customer_name=order.customer_name,
             due_date=order.due_date,
+            disposition_available_before_mm=disp_mm,
+            disposition_available_before_m=disp_m,
         )
 
 

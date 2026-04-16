@@ -25,6 +25,7 @@ const ADMIN_ITEMS: NavigationItem[] = [
   { href: "/scan", label: "Scan" },
   { href: "/erp-transfers", label: "ERP-Transfer" },
   { href: "/admin", label: "Admin" },
+  { href: "/admin/simulator-test", label: "Simulator-Test" },
 ];
 
 const LEITUNG_ITEMS: NavigationItem[] = [
@@ -74,6 +75,7 @@ export function AppChrome({ children }: AppChromeProps) {
   const [mounted, setMounted] = useState(false);
   const [authContext, setAuthContext] = useState<AuthSessionContext | null>(null);
   const [hasToken, setHasToken] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
     const syncAuthState = () => {
@@ -108,6 +110,28 @@ export function AppChrome({ children }: AppChromeProps) {
     }
   }, [mounted, isLoginRoute, isAuthenticated, roleCode, hasToken, router]);
 
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) {
+      return;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileNavOpen(false);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [mobileNavOpen]);
+
   function handleLogout() {
     logout();
     setAuthContext(null);
@@ -132,28 +156,98 @@ export function AppChrome({ children }: AppChromeProps) {
   return (
     <>
       {shouldShowNavigation ? (
-        <nav className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
-          <div className="mx-auto grid w-full max-w-5xl gap-2 p-3 text-sm sm:grid-cols-4">
-            {visibleItems.map((item) => (
-              <Link
-                key={item.href}
-                className="rounded-md border border-slate-200 px-3 py-2 text-center"
-                href={item.href}
+        <>
+          <nav className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+            <div className="mx-auto flex max-w-5xl items-center justify-end px-3 py-2 md:hidden">
+              <button
+                type="button"
+                className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-xl leading-none text-slate-800 hover:bg-slate-50"
+                aria-expanded={mobileNavOpen}
+                aria-controls="mobile-app-nav-drawer"
+                aria-label="Hauptmenü öffnen"
+                onClick={() => setMobileNavOpen(true)}
               >
-                {item.label}
-              </Link>
-            ))}
-            <Button className="w-full sm:w-auto" onClick={handleLogout}>
-              Logout
-            </Button>
-          </div>
-          {authContext ? (
-            <div className="mx-auto w-full max-w-5xl px-3 pb-3 text-xs text-slate-600 sm:px-6">
-              Angemeldet als {authContext.username} ({loginTypeLabel(authContext.login_type)} -{" "}
-              {authContext.selected_connection})
+                <span aria-hidden>☰</span>
+              </button>
+            </div>
+            <div className="mx-auto hidden w-full max-w-5xl gap-2 p-3 text-sm md:grid md:grid-cols-4">
+              {visibleItems.map((item) => (
+                <Link
+                  key={item.href}
+                  className="rounded-md border border-slate-200 px-3 py-2 text-center"
+                  href={item.href}
+                >
+                  {item.label}
+                </Link>
+              ))}
+              <Button className="w-full sm:w-auto" onClick={handleLogout}>
+                Logout
+              </Button>
+            </div>
+            {authContext ? (
+              <div className="mx-auto hidden w-full max-w-5xl px-3 pb-3 text-xs text-slate-600 md:block sm:px-6">
+                Angemeldet als {authContext.username} ({loginTypeLabel(authContext.login_type)} -{" "}
+                {authContext.selected_connection})
+              </div>
+            ) : null}
+          </nav>
+          {mobileNavOpen ? (
+            <div
+              className="fixed inset-0 z-50 md:hidden"
+              id="mobile-app-nav-drawer"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Hauptmenü"
+            >
+              <button
+                type="button"
+                className="absolute inset-0 bg-slate-900/40"
+                aria-label="Menü schließen"
+                onClick={() => setMobileNavOpen(false)}
+              />
+              <div className="absolute right-0 top-0 z-10 flex h-full w-[min(100%,20rem)] flex-col border-l border-slate-200 bg-white shadow-xl">
+                <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
+                  <span className="text-sm font-medium text-slate-800">Menü</span>
+                  <button
+                    type="button"
+                    className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-md border border-slate-200 text-sm text-slate-700 hover:bg-slate-50"
+                    aria-label="Menü schließen"
+                    onClick={() => setMobileNavOpen(false)}
+                  >
+                    ✕
+                  </button>
+                </div>
+                {authContext ? (
+                  <p className="border-b border-slate-100 px-3 py-2 text-xs text-slate-600">
+                    Angemeldet als {authContext.username} ({loginTypeLabel(authContext.login_type)} -{" "}
+                    {authContext.selected_connection})
+                  </p>
+                ) : null}
+                <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-3">
+                  {visibleItems.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="rounded-md border border-slate-200 px-3 py-2.5 text-center text-sm text-slate-800 hover:bg-slate-50"
+                      onClick={() => setMobileNavOpen(false)}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                  <Button
+                    className="mt-auto w-full"
+                    onClick={() => {
+                      setMobileNavOpen(false);
+                      handleLogout();
+                    }}
+                  >
+                    Logout
+                  </Button>
+                </div>
+              </div>
             </div>
           ) : null}
-        </nav>
+        </>
       ) : null}
       {shouldBlockByMissingRole ? (
         <main className="mx-auto w-full max-w-5xl p-3 sm:p-6">

@@ -350,6 +350,12 @@ Bei jeder Änderung prüfen:
 - Daten → datenbankmodell.md
 - Regeln → projektrules.md
 
+## README-Pflicht
+
+Wenn ein neues Modul, ein neuer technischer Baustein oder eine neue zentrale Funktion eingeführt wird, muss die README.md geprüft und bei Bedarf aktualisiert werden.
+
+Die README.md dient als laufend gepflegte Projektübersicht und muss den aktuellen technischen Stand des Projekts widerspiegeln.
+
 ---
 
 ## Versions- und Dokumentationskonsistenz

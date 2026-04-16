@@ -20,6 +20,9 @@ export type OrderDto = {
   customer_name: string | null;
   /** ISO-Datum YYYY-MM-DD */
   due_date: string | null;
+  /** Stückgut mm vor diesem Auftrag in der App-Sequenz (Backend); nicht global ERP+App */
+  disposition_available_before_mm: number | null;
+  disposition_available_before_m: number | null;
 };
 
 export type ErpProfileDto = {

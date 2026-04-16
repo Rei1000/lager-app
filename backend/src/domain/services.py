@@ -34,10 +34,11 @@ def calculate_traffic_light(
     available_with_optional_rest_mm: int,
     include_rest_stock: bool,
 ) -> TrafficLight:
+    """Ampel aus Bedarf und verfügbaren Mengen. Negative „Verfügbarkeit“ (globale Unterdeckung)
+    führt nicht zu einer Exception: Stückgut-Pool wird für Grün mit max(0,·) behandelt."""
     _ensure_non_negative(demand_mm, "demand_mm")
-    _ensure_non_negative(available_without_rest_mm, "available_without_rest_mm")
-    _ensure_non_negative(available_with_optional_rest_mm, "available_with_optional_rest_mm")
-    if demand_mm <= available_without_rest_mm:
+    avail_full_mm = max(0, available_without_rest_mm)
+    if demand_mm <= avail_full_mm:
         return TrafficLight.GREEN
     if include_rest_stock and demand_mm <= available_with_optional_rest_mm:
         return TrafficLight.YELLOW
@@ -48,15 +49,21 @@ def evaluate_orders_sequentially(
     orders: list[AppOrder],
     erp_stock_mm: int,
     open_erp_orders_mm: int,
-    app_reservations_mm: int,
     rest_stock_mm: int,
 ) -> list[AppOrder]:
+    """Sequentielle Bewertung der übergebenen App-Aufträge (eine Materialgruppe).
+
+    Startpool: ERP-Stückgut abzüglich ERP-/Simulator-Pipeline (aggregiert). Die App-Aufträge
+    werden in dieser Reihenfolge verbraucht; es wird **nicht** zusätzlich die Summe aller
+    App-Bedarfe vorab abgezogen (das würde die Sequenz doppelt belasten und negative Pools erzeugen).
+
+    Pro Auftrag: ``disposition_available_before_mm`` = max(0, verbleibendes Stückgut vor diesem Auftrag).
+    """
     if not orders:
         return []
 
     _ensure_non_negative(erp_stock_mm, "erp_stock_mm")
     _ensure_non_negative(open_erp_orders_mm, "open_erp_orders_mm")
-    _ensure_non_negative(app_reservations_mm, "app_reservations_mm")
     _ensure_non_negative(rest_stock_mm, "rest_stock_mm")
 
     material_keys = {order.material_article_number for order in orders}
@@ -68,11 +75,12 @@ def evaluate_orders_sequentially(
         key=lambda order: order.priority_order if order.priority_order is not None else 10**9,
     )
 
-    remaining_without_rest = erp_stock_mm - open_erp_orders_mm - app_reservations_mm
+    remaining_without_rest = erp_stock_mm - open_erp_orders_mm
     remaining_rest = rest_stock_mm
 
     for order in sorted_orders:
         demand = order.total_demand_mm
+        order.disposition_available_before_mm = max(0, remaining_without_rest)
         available_with_rest = remaining_without_rest + (remaining_rest if order.include_rest_stock else 0)
         order.traffic_light = calculate_traffic_light(
             demand_mm=demand,

@@ -88,13 +88,15 @@ Für alle App-Aufträge **dieselben Materials** gelten:
 - `app_reservations_mm` = Summe der **app-only**-Bedarf in mm (gleiche Ausschlusslogik wie oben).
 - `rest_stock_mm` = `rest_stock_m · 1000` aus `material_types`.
 
-Die Domain-Funktion `evaluate_orders_sequentially` rechnet mit:
+Die Domain-Funktion `evaluate_orders_sequentially` bildet die **App-Reihenfolge** pro Material ab. Startpool für die Sequenz:
 
 \[
-\text{remaining\_without\_rest} = \text{erp\_stock\_mm} - \text{open\_erp\_orders\_mm} - \text{app\_reservations\_mm}
+\text{remaining\_without\_rest} = \text{erp\_stock\_mm} - \text{open\_erp\_orders\_mm}
 \]
 
-Damit sind ERP-Pipeline und App-only getrennt parametrisiert, aber **gemeinsam** von der gleichen physischen Lagergröße abgezogen.
+Die App-Aufträge der Sequenz verbrauchen diesen Pool nacheinander; die aggregierte Größe `app_reservations_mm` aus dem Snapshot wird hier **nicht** vorab abgezogen (sonst Doppelzählung mit den einzelnen Aufträgen). `app_reservations_mm` bleibt für andere Kennzahlen (z. B. Planungs-Preview, `calculate_available_mm`) relevant.
+
+Bei globaler Unterdeckung (negativer Pool vor dem ersten Auftrag) führt die Ampellogik zu Rot/Gelb ohne Exception; „Verfügbar vor diesem Auftrag“ (Stückgut) wird für die Anzeige auf \(\geq 0\) begrenzt.
 
 ---
 

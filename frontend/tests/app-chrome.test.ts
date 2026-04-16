@@ -5,7 +5,15 @@ import { getVisibleNavigationItems } from "@/components/shared/app-chrome";
 describe("app chrome navigation", () => {
   it("shows all expected items for admin", () => {
     const items = getVisibleNavigationItems("admin").map((item) => item.label);
-    expect(items).toEqual(["Dashboard", "Orders", "Inventur", "Scan", "ERP-Transfer", "Admin"]);
+    expect(items).toEqual([
+      "Dashboard",
+      "Orders",
+      "Inventur",
+      "Scan",
+      "ERP-Transfer",
+      "Admin",
+      "Simulator-Test",
+    ]);
   });
 
   it("shows expected subset for leitung", () => {

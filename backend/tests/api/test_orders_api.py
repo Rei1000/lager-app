@@ -14,6 +14,7 @@ from adapters.api.dependencies.use_cases import (
     get_reserve_order_use_case,
 )
 from application.use_cases.create_order_use_case import CreateOrderUseCase
+from application.use_cases.reprioritize_orders_use_case import ReprioritizeOrdersUseCase
 from application.errors import NotFoundError
 from domain.entities import AppOrder
 from domain.value_objects import TrafficLight
@@ -164,6 +165,72 @@ def test_post_orders_returns_201_when_audit_log_fails() -> None:
     app.dependency_overrides.clear()
 
 
+def test_post_reprioritize_returns_200_when_audit_log_fails() -> None:
+    """Echtes ReprioritizeOrdersUseCase mit fehlendem Audit: API bleibt erfolgreich (200)."""
+    app.dependency_overrides[require_authenticated_user] = lambda: RequestUser(
+        user_id=2,
+        username="lager",
+        role_code="lager",
+        role_name="Lager",
+    )
+    repo = _FakeOrderRepository()
+    repo.orders.extend(
+        [
+            AppOrder(
+                order_id="api-reprio-a",
+                material_article_number="ART-001",
+                quantity=1,
+                part_length_mm=1000,
+                kerf_mm=0,
+                include_rest_stock=False,
+                priority_order=1,
+            ),
+            AppOrder(
+                order_id="api-reprio-b",
+                material_article_number="ART-001",
+                quantity=1,
+                part_length_mm=1000,
+                kerf_mm=0,
+                include_rest_stock=False,
+                priority_order=2,
+            ),
+        ]
+    )
+    snapshot = StockSnapshot(
+        erp_stock_mm=10_000_000,
+        open_erp_orders_mm=0,
+        app_reservations_mm=0,
+        rest_stock_mm=0,
+    )
+    real_uc = ReprioritizeOrdersUseCase(
+        order_repository=repo,
+        stock_snapshot_port=_FixedSnapshot(snapshot),
+        audit_log_port=_FailingAuditLogPort(),
+    )
+
+    def _uc() -> ReprioritizeOrdersUseCase:
+        return real_uc
+
+    app.dependency_overrides[get_reprioritize_orders_use_case] = _uc
+    client = TestClient(app)
+
+    response = client.post(
+        "/orders/reprioritize",
+        json={
+            "material_article_number": "ART-001",
+            "ordered_ids": ["api-reprio-b", "api-reprio-a"],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body[0]["order_id"] == "api-reprio-b"
+    assert body[0]["priority_order"] == 1
+    saved_b = next(o for o in repo.orders if o.order_id == "api-reprio-b")
+    assert saved_b.priority_order == 1
+    app.dependency_overrides.clear()
+
+
 def test_reserve_order_endpoint_returns_reserved_order() -> None:
     app.dependency_overrides[require_authenticated_user] = lambda: RequestUser(
         user_id=1,
@@ -210,9 +277,9 @@ def test_reserve_order_endpoint_maps_not_found_to_404() -> None:
 def test_reprioritize_orders_endpoint_returns_reordered_list() -> None:
     app.dependency_overrides[require_authenticated_user] = lambda: RequestUser(
         user_id=2,
-        username="leitung",
-        role_code="leitung",
-        role_name="Leitung",
+        username="lager",
+        role_code="lager",
+        role_name="Lager",
     )
 
     class FakeReprioritizeOrdersUseCase:
@@ -367,13 +434,7 @@ def test_orders_endpoint_with_valid_token_returns_success() -> None:
     app.dependency_overrides.clear()
 
 
-def test_reprioritize_requires_leitung_or_admin() -> None:
-    app.dependency_overrides[require_authenticated_user] = lambda: RequestUser(
-        user_id=1,
-        username="lager",
-        role_code="lager",
-        role_name="Lager",
-    )
+def test_reprioritize_unauthenticated_returns_401() -> None:
     client = TestClient(app)
 
     response = client.post(
@@ -384,7 +445,7 @@ def test_reprioritize_requires_leitung_or_admin() -> None:
         },
     )
 
-    assert response.status_code == 403
+    assert response.status_code == 401
     app.dependency_overrides.clear()
 
 

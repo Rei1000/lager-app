@@ -91,6 +91,8 @@ class AppOrder:
     customer_name: str | None = None
     due_date: date | None = None
     material_description: str | None = None
+    #: Stückgut verfügbar vor diesem Auftrag in der App-Sequenz (mm), nach Auswertung; nur Anzeige/Disposition
+    disposition_available_before_mm: int | None = None
 
     def __post_init__(self) -> None:
         if not self.material_article_number.strip():

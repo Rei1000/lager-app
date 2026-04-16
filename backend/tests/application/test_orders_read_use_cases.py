@@ -10,6 +10,7 @@ from application.use_cases.orders_read_use_cases import (
 from domain.entities import AppOrder
 from domain.value_objects import TrafficLight
 from ports.order_repository_port import OrderRepositoryPort
+from ports.stock_snapshot_port import StockSnapshot, StockSnapshotPort
 
 
 @dataclass
@@ -36,6 +37,14 @@ class FakeOrderRepository(OrderRepositoryPort):
         self.orders.append(order)
 
 
+@dataclass
+class FakeStockSnapshotPort(StockSnapshotPort):
+    snapshot: StockSnapshot
+
+    def get_snapshot(self, material_article_number: str) -> StockSnapshot:
+        return self.snapshot
+
+
 def _make_order(order_id: str, material: str, status: str, priority: int, light: TrafficLight) -> AppOrder:
     order = AppOrder(
         order_id=order_id,
@@ -59,22 +68,41 @@ def test_list_orders_detailed_use_case_filters_and_sorts() -> None:
             _make_order("B1", "ART-002", "draft", 1, TrafficLight.GREEN),
         ]
     )
-    use_case = ListOrdersDetailedUseCase(order_repository=repo)
+    stock = FakeStockSnapshotPort(
+        snapshot=StockSnapshot(
+            erp_stock_mm=100_000,
+            open_erp_orders_mm=0,
+            app_reservations_mm=0,
+            rest_stock_mm=0,
+        )
+    )
+    use_case = ListOrdersDetailedUseCase(order_repository=repo, stock_snapshot_port=stock)
 
     result = use_case.execute(status="checked", material_article_number="ART-001")
 
     assert [order.order_id for order in result] == ["A1", "A2"]
+    assert result[0].disposition_available_before_mm == 100_000
+    assert result[1].disposition_available_before_mm == 99_000
 
 
 def test_get_order_detail_use_case_returns_one_order() -> None:
     repo = FakeOrderRepository(
         orders=[_make_order("A1", "ART-001", "reserved", 1, TrafficLight.GREEN)]
     )
-    use_case = GetOrderDetailUseCase(order_repository=repo)
+    stock = FakeStockSnapshotPort(
+        snapshot=StockSnapshot(
+            erp_stock_mm=50_000,
+            open_erp_orders_mm=0,
+            app_reservations_mm=0,
+            rest_stock_mm=0,
+        )
+    )
+    use_case = GetOrderDetailUseCase(order_repository=repo, stock_snapshot_port=stock)
 
     result = use_case.execute("A1")
 
     assert result.status == "reserved"
+    assert result.disposition_available_before_mm == 50_000
 
 
 def test_dashboard_overview_use_case_counts_open_and_critical_orders() -> None:

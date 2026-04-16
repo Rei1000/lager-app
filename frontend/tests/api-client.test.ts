@@ -60,6 +60,8 @@ describe("api client", () => {
           required_m: 1,
           customer_name: null,
           due_date: null,
+          disposition_available_before_mm: 1000,
+          disposition_available_before_m: 1,
         }),
       })
     );

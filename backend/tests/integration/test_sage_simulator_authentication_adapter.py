@@ -72,7 +72,7 @@ def test_simulator_authentication_rejects_invalid_password() -> None:
 def test_simulator_authentication_supports_seed_user_references() -> None:
     hasher = Pbkdf2PasswordHasher()
     records = {
-        "sage_admin": AuthIdentityRecord(
+        "ERP-SAGE-USER-ADMIN-001": AuthIdentityRecord(
             user_id=1,
             username="sage_admin",
             password_hash=hasher.hash_password("SageAdmin123!"),
@@ -80,7 +80,7 @@ def test_simulator_authentication_supports_seed_user_references() -> None:
             role_name="Admin",
             is_active=True,
         ),
-        "sage_leitung": AuthIdentityRecord(
+        "ERP-SAGE-USER-LEITUNG-001": AuthIdentityRecord(
             user_id=2,
             username="sage_leitung",
             password_hash=hasher.hash_password("SageLeitung123!"),
@@ -88,7 +88,7 @@ def test_simulator_authentication_supports_seed_user_references() -> None:
             role_name="Leitung",
             is_active=True,
         ),
-        "sage_lager": AuthIdentityRecord(
+        "ERP-SAGE-USER-LAGER-001": AuthIdentityRecord(
             user_id=3,
             username="sage_lager",
             password_hash=hasher.hash_password("SageLager123!"),

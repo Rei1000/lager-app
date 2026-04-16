@@ -22,6 +22,8 @@ from ports.erp_order_link_port import ErpOrderLinkPort
 from ports.order_repository_port import OrderRepositoryPort
 from ports.stock_snapshot_port import StockSnapshot, StockSnapshotPort
 
+from tests.application.test_create_order_use_case import _FailingAuditLogPort
+
 
 @dataclass
 class FakeOrderRepository(OrderRepositoryPort):
@@ -202,6 +204,150 @@ def test_reprioritize_orders_use_case_applies_new_order_and_recalculates() -> No
     assert reprioritized[0].priority_order == 1
     assert reprioritized[0].traffic_light is TrafficLight.GREEN
     assert reprioritized[1].traffic_light is TrafficLight.RED
+    assert repo.get_by_id("A2") is not None
+    assert repo.get_by_id("A2").priority_order == 1
+    assert repo.get_by_id("A1") is not None
+    assert repo.get_by_id("A1").priority_order == 2
+
+
+def test_reprioritize_succeeds_even_if_snapshot_app_reservations_mm_is_huge() -> None:
+    """Simulator-Snapshot kann aggregiertes app_only enthalten; die sequentielle Ampel nutzt nur ERP-Stückgut minus Pipeline."""
+    first = AppOrder(
+        order_id="A1",
+        material_article_number="ART-001",
+        quantity=1,
+        part_length_mm=1000,
+        kerf_mm=0,
+        include_rest_stock=False,
+        priority_order=1,
+    )
+    second = AppOrder(
+        order_id="A2",
+        material_article_number="ART-001",
+        quantity=1,
+        part_length_mm=1000,
+        kerf_mm=0,
+        include_rest_stock=False,
+        priority_order=2,
+    )
+    repo = FakeOrderRepository(orders=[first, second])
+    stock = FakeStockSnapshotPort(
+        snapshot=StockSnapshot(
+            erp_stock_mm=50_000,
+            open_erp_orders_mm=0,
+            app_reservations_mm=999_999_999,
+            rest_stock_mm=0,
+        )
+    )
+    use_case = ReprioritizeOrdersUseCase(order_repository=repo, stock_snapshot_port=stock)
+
+    reprioritized = use_case.execute(
+        ReprioritizeOrdersCommand(
+            material_article_number="ART-001",
+            ordered_ids=["A1", "A2"],
+            acting_user_id=1,
+        )
+    )
+
+    assert len(reprioritized) == 2
+    assert reprioritized[0].traffic_light is TrafficLight.GREEN
+    assert reprioritized[1].traffic_light is TrafficLight.GREEN
+
+
+def test_reprioritize_succeeds_when_audit_log_fails() -> None:
+    """Audit ist nachgelagert: Reihung bleibt gueltig, Use Case wirft nicht."""
+    first = AppOrder(
+        order_id="A1",
+        material_article_number="ART-001",
+        quantity=4,
+        part_length_mm=1000,
+        kerf_mm=0,
+        include_rest_stock=False,
+        priority_order=1,
+    )
+    second = AppOrder(
+        order_id="A2",
+        material_article_number="ART-001",
+        quantity=4,
+        part_length_mm=1000,
+        kerf_mm=0,
+        include_rest_stock=False,
+        priority_order=2,
+    )
+    repo = FakeOrderRepository(orders=[first, second])
+    stock = FakeStockSnapshotPort(
+        snapshot=StockSnapshot(
+            erp_stock_mm=6_000,
+            open_erp_orders_mm=0,
+            app_reservations_mm=0,
+            rest_stock_mm=0,
+        )
+    )
+    use_case = ReprioritizeOrdersUseCase(
+        order_repository=repo,
+        stock_snapshot_port=stock,
+        audit_log_port=_FailingAuditLogPort(),
+    )
+
+    reprioritized = use_case.execute(
+        ReprioritizeOrdersCommand(
+            material_article_number="ART-001",
+            ordered_ids=["A2", "A1"],
+            acting_user_id=2,
+        )
+    )
+
+    assert len(reprioritized) == 2
+    assert reprioritized[0].order_id == "A2"
+    assert repo.get_by_id("A2") is not None
+    assert repo.get_by_id("A2").priority_order == 1
+
+
+def test_reprioritize_persists_when_stock_pool_is_underwater_no_exception() -> None:
+    """Knapp/unterdeckt: interner Stückgut-Rest kann negativ werden; Ampel rot, keine Exception."""
+    first = AppOrder(
+        order_id="U1",
+        material_article_number="ART-UW",
+        quantity=5,
+        part_length_mm=1000,
+        kerf_mm=0,
+        include_rest_stock=False,
+        priority_order=1,
+    )
+    second = AppOrder(
+        order_id="U2",
+        material_article_number="ART-UW",
+        quantity=5,
+        part_length_mm=1000,
+        kerf_mm=0,
+        include_rest_stock=False,
+        priority_order=2,
+    )
+    repo = FakeOrderRepository(orders=[first, second])
+    stock = FakeStockSnapshotPort(
+        snapshot=StockSnapshot(
+            erp_stock_mm=3_000,
+            open_erp_orders_mm=0,
+            app_reservations_mm=0,
+            rest_stock_mm=0,
+        )
+    )
+    use_case = ReprioritizeOrdersUseCase(order_repository=repo, stock_snapshot_port=stock)
+
+    out = use_case.execute(
+        ReprioritizeOrdersCommand(
+            material_article_number="ART-UW",
+            ordered_ids=["U2", "U1"],
+            acting_user_id=1,
+        )
+    )
+
+    assert len(out) == 2
+    assert out[0].order_id == "U2"
+    assert out[0].priority_order == 1
+    assert out[1].traffic_light is TrafficLight.RED
+    assert out[0].disposition_available_before_mm >= 0
+    assert out[1].disposition_available_before_mm >= 0
 
 
 def test_link_erp_order_use_case_links_and_transitions_status() -> None:

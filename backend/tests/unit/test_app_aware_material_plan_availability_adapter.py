@@ -39,3 +39,36 @@ def test_app_aware_adds_pipeline_for_app_only_orders() -> None:
     assert snap.in_pipeline_m == 12.0
     assert snap.available_m == 88.0
     assert any(o.order_reference.startswith("app:") for o in snap.open_orders)
+
+
+def test_app_aware_skips_app_demand_when_erp_order_number_matches_simulator_pipeline() -> None:
+    """Kein Doppelzählen: App-Auftrag mit gleicher ERP-Ref wie Simulator-Pipeline zählt nicht extra."""
+    inner = MagicMock(spec=SageSimulatorMaterialPlanAvailabilityAdapter)
+    inner.get_snapshot.return_value = MaterialPlanAvailabilitySnapshot(
+        material_reference="M1",
+        description="d",
+        stock_m=100.0,
+        in_pipeline_m=10.0,
+        available_m=90.0,
+        open_orders=(
+            OpenMaterialOrderDemand(order_reference="SAGE-ORD-1", required_m=10.0, status="open"),
+        ),
+    )
+    repo = MagicMock()
+    repo.list_by_material.return_value = [
+        AppOrder(
+            order_id="app-erp-linked",
+            material_article_number="M1",
+            quantity=1,
+            part_length_mm=5000,
+            kerf_mm=0,
+            include_rest_stock=False,
+            status="checked",
+            erp_order_number="SAGE-ORD-1",
+        )
+    ]
+    adapter = AppAwareMaterialPlanAvailabilityAdapter(inner=inner, order_repository=repo)
+    snap = adapter.get_snapshot("M1")
+    assert snap is not None
+    assert snap.in_pipeline_m == 10.0
+    assert snap.available_m == 90.0

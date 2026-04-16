@@ -25,7 +25,6 @@ class RecalculateOrdersUseCase:
             orders=orders,
             erp_stock_mm=snapshot.erp_stock_mm,
             open_erp_orders_mm=snapshot.open_erp_orders_mm,
-            app_reservations_mm=snapshot.app_reservations_mm,
             rest_stock_mm=snapshot.rest_stock_mm,
         )
         for order in evaluated:

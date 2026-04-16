@@ -362,11 +362,17 @@ def get_list_audit_logs_use_case() -> ListAuditLogsUseCase:
 
 
 def get_list_orders_detailed_use_case() -> ListOrdersDetailedUseCase:
-    return ListOrdersDetailedUseCase(order_repository=_order_repository)
+    return ListOrdersDetailedUseCase(
+        order_repository=_order_repository,
+        stock_snapshot_port=_stock_snapshot_port,
+    )
 
 
 def get_get_order_detail_use_case() -> GetOrderDetailUseCase:
-    return GetOrderDetailUseCase(order_repository=_order_repository)
+    return GetOrderDetailUseCase(
+        order_repository=_order_repository,
+        stock_snapshot_port=_stock_snapshot_port,
+    )
 
 
 def get_dashboard_overview_use_case() -> GetDashboardOverviewUseCase:

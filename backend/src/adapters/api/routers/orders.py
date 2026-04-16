@@ -117,7 +117,7 @@ def reserve_order(
 def reprioritize_orders(
     payload: ReprioritizeOrdersRequest,
     use_case: ReprioritizeOrdersUseCase = Depends(get_reprioritize_orders_use_case),
-    current_user: RequestUser = Depends(require_leitung_or_admin),
+    current_user: RequestUser = Depends(require_lager_plus),
 ) -> list[OrderResponse]:
     try:
         orders = use_case.execute(
