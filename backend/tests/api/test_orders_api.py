@@ -12,6 +12,7 @@ from adapters.api.dependencies.use_cases import (
     get_current_user_use_case,
     get_reprioritize_orders_use_case,
     get_reserve_order_use_case,
+    get_update_order_use_case,
 )
 from application.use_cases.create_order_use_case import CreateOrderUseCase
 from application.use_cases.reprioritize_orders_use_case import ReprioritizeOrdersUseCase
@@ -331,6 +332,34 @@ def test_list_orders_endpoint_returns_orders_with_fields() -> None:
     assert response.status_code == 200
     assert len(response.json()) == 2
     assert response.json()[0]["status"] == "checked"
+    app.dependency_overrides.clear()
+
+
+def test_patch_order_returns_updated_order() -> None:
+    app.dependency_overrides[require_authenticated_user] = lambda: RequestUser(
+        user_id=1,
+        username="lager",
+        role_code="lager",
+        role_name="Lager",
+    )
+
+    class FakeUpdateOrderUseCase:
+        def execute(self, command: object) -> AppOrder:
+            oid = getattr(command, "order_id", "")
+            o = _make_order(str(oid), priority=1, status="draft")
+            o.quantity = getattr(command, "quantity", 2)
+            return o
+
+    app.dependency_overrides[get_update_order_use_case] = lambda: FakeUpdateOrderUseCase()
+    client = TestClient(app)
+
+    response = client.patch(
+        "/orders/E1",
+        json={"quantity": 5, "part_length_mm": 1000, "kerf_mm": 0},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["quantity"] == 5
     app.dependency_overrides.clear()
 
 

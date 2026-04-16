@@ -20,6 +20,17 @@ class CreateOrderCommand:
 
 
 @dataclass(frozen=True)
+class UpdateOrderCommand:
+    order_id: str
+    quantity: int
+    part_length_mm: int
+    kerf_mm: int
+    acting_user_id: int
+    customer_name: str | None = None
+    due_date: date | None = None
+
+
+@dataclass(frozen=True)
 class RecalculateOrdersCommand:
     material_article_number: str
 

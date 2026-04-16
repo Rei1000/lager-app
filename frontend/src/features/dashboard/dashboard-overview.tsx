@@ -2,21 +2,9 @@
 
 import { useEffect, useState } from "react";
 
+import { TrafficLightIndicator } from "@/components/shared/traffic-light-indicator";
 import { fetchDashboardOverview, fetchErpMaterialStock, fetchErpOrderValidation } from "@/lib/api-client";
 import type { DashboardOverviewDto, OrderDto } from "@/lib/types";
-
-function trafficLightClass(light: string | null): string {
-  if (light === "green") {
-    return "bg-green-100 text-green-800";
-  }
-  if (light === "yellow") {
-    return "bg-yellow-100 text-yellow-800";
-  }
-  if (light === "red") {
-    return "bg-red-100 text-red-800";
-  }
-  return "bg-slate-100 text-slate-700";
-}
 
 function orderKey(order: OrderDto, index: number): string {
   return (
@@ -141,11 +129,7 @@ export function DashboardOverview() {
                   <span className="font-medium">{orderDisplayLabel(order)}</span>
                   <span>Status: {order.status}</span>
                   <span>Reihenfolge (auto): {order.priority_order ?? "-"}</span>
-                  <span
-                    className={`rounded px-2 py-0.5 text-xs font-medium ${trafficLightClass(order.traffic_light)}`}
-                  >
-                    {order.traffic_light ?? "-"}
-                  </span>
+                  <TrafficLightIndicator trafficLight={order.traffic_light} />
                 </div>
                 <p>
                   Material: {order.material_article_number}

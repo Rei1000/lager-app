@@ -18,6 +18,7 @@ from adapters.api.dependencies.use_cases import (
     get_recalculate_orders_use_case,
     get_reprioritize_orders_use_case,
     get_reserve_order_use_case,
+    get_update_order_use_case,
 )
 from adapters.api.errors import map_value_error
 from adapters.api.schemas.orders import (
@@ -26,6 +27,7 @@ from adapters.api.schemas.orders import (
     OrderResponse,
     RecalculateOrdersRequest,
     ReprioritizeOrdersRequest,
+    UpdateOrderRequest,
 )
 from application.dtos import (
     CreateOrderCommand,
@@ -33,6 +35,7 @@ from application.dtos import (
     RecalculateOrdersCommand,
     ReprioritizeOrdersCommand,
     ReserveOrderCommand,
+    UpdateOrderCommand,
 )
 from application.use_cases.create_order_use_case import CreateOrderUseCase
 from application.use_cases.link_erp_order_use_case import LinkErpOrderUseCase
@@ -43,6 +46,7 @@ from application.use_cases.orders_read_use_cases import (
 from application.use_cases.recalculate_orders_use_case import RecalculateOrdersUseCase
 from application.use_cases.reprioritize_orders_use_case import ReprioritizeOrdersUseCase
 from application.use_cases.reserve_order_use_case import ReserveOrderUseCase
+from application.use_cases.update_order_use_case import UpdateOrderUseCase
 
 router = APIRouter(
     prefix="/orders",
@@ -88,6 +92,30 @@ def create_order(
                 part_length_mm=payload.part_length_mm,
                 kerf_mm=payload.kerf_mm,
                 include_rest_stock=payload.include_rest_stock,
+                acting_user_id=current_user.user_id,
+                customer_name=payload.customer_name,
+                due_date=payload.due_date,
+            )
+        )
+    except ValueError as exc:
+        raise map_value_error(exc) from exc
+    return OrderResponse.from_domain(order)
+
+
+@router.patch("/{order_id}", response_model=OrderResponse)
+def update_order(
+    order_id: str,
+    payload: UpdateOrderRequest,
+    use_case: UpdateOrderUseCase = Depends(get_update_order_use_case),
+    current_user: RequestUser = Depends(require_lager_plus),
+) -> OrderResponse:
+    try:
+        order = use_case.execute(
+            UpdateOrderCommand(
+                order_id=order_id,
+                quantity=payload.quantity,
+                part_length_mm=payload.part_length_mm,
+                kerf_mm=payload.kerf_mm,
                 acting_user_id=current_user.user_id,
                 customer_name=payload.customer_name,
                 due_date=payload.due_date,

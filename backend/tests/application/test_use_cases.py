@@ -10,17 +10,21 @@ from application.dtos import (
     RecalculateOrdersCommand,
     ReprioritizeOrdersCommand,
     ReserveOrderCommand,
+    UpdateOrderCommand,
 )
 from application.use_cases.create_order_use_case import CreateOrderUseCase
 from application.use_cases.link_erp_order_use_case import LinkErpOrderUseCase
 from application.use_cases.recalculate_orders_use_case import RecalculateOrdersUseCase
 from application.use_cases.reprioritize_orders_use_case import ReprioritizeOrdersUseCase
 from application.use_cases.reserve_order_use_case import ReserveOrderUseCase
+from application.use_cases.update_order_use_case import UpdateOrderUseCase
 from domain.entities import AppOrder
 from domain.value_objects import TrafficLight
 from ports.erp_order_link_port import ErpOrderLinkPort
 from ports.order_repository_port import OrderRepositoryPort
 from ports.stock_snapshot_port import StockSnapshot, StockSnapshotPort
+
+from application.errors import NotFoundError
 
 from tests.application.test_create_order_use_case import _FailingAuditLogPort
 
@@ -348,6 +352,94 @@ def test_reprioritize_persists_when_stock_pool_is_underwater_no_exception() -> N
     assert out[1].traffic_light is TrafficLight.RED
     assert out[0].disposition_available_before_mm >= 0
     assert out[1].disposition_available_before_mm >= 0
+
+
+def test_update_order_use_case_changes_quantity_and_recalculates() -> None:
+    order = AppOrder(
+        order_id="E1",
+        material_article_number="ART-001",
+        quantity=2,
+        part_length_mm=1000,
+        kerf_mm=0,
+        include_rest_stock=False,
+        priority_order=1,
+    )
+    repo = FakeOrderRepository(orders=[order])
+    stock = FakeStockSnapshotPort(
+        snapshot=StockSnapshot(
+            erp_stock_mm=50_000,
+            open_erp_orders_mm=0,
+            app_reservations_mm=0,
+            rest_stock_mm=0,
+        )
+    )
+    recalc = RecalculateOrdersUseCase(order_repository=repo, stock_snapshot_port=stock)
+    uc = UpdateOrderUseCase(order_repository=repo, recalculate_orders_use_case=recalc, audit_log_port=None)
+    out = uc.execute(
+        UpdateOrderCommand(
+            order_id="E1",
+            quantity=10,
+            part_length_mm=1000,
+            kerf_mm=0,
+            acting_user_id=1,
+        )
+    )
+    assert out.quantity == 10
+    saved = repo.get_by_id("E1")
+    assert saved is not None
+    assert saved.quantity == 10
+
+
+def test_update_order_use_case_rejects_done_status() -> None:
+    order = AppOrder(
+        order_id="E2",
+        material_article_number="ART-001",
+        quantity=1,
+        part_length_mm=1000,
+        kerf_mm=0,
+        include_rest_stock=False,
+        status="done",
+        priority_order=1,
+    )
+    repo = FakeOrderRepository(orders=[order])
+    recalc = RecalculateOrdersUseCase(
+        order_repository=repo,
+        stock_snapshot_port=FakeStockSnapshotPort(
+            snapshot=StockSnapshot(erp_stock_mm=1, open_erp_orders_mm=0, app_reservations_mm=0, rest_stock_mm=0)
+        ),
+    )
+    uc = UpdateOrderUseCase(order_repository=repo, recalculate_orders_use_case=recalc, audit_log_port=None)
+    with pytest.raises(ValueError, match="Abgeschlossene"):
+        uc.execute(
+            UpdateOrderCommand(
+                order_id="E2",
+                quantity=2,
+                part_length_mm=1000,
+                kerf_mm=0,
+                acting_user_id=1,
+            )
+        )
+
+
+def test_update_order_use_case_not_found() -> None:
+    repo = FakeOrderRepository(orders=[])
+    recalc = RecalculateOrdersUseCase(
+        order_repository=repo,
+        stock_snapshot_port=FakeStockSnapshotPort(
+            snapshot=StockSnapshot(erp_stock_mm=1, open_erp_orders_mm=0, app_reservations_mm=0, rest_stock_mm=0)
+        ),
+    )
+    uc = UpdateOrderUseCase(order_repository=repo, recalculate_orders_use_case=recalc, audit_log_port=None)
+    with pytest.raises(NotFoundError):
+        uc.execute(
+            UpdateOrderCommand(
+                order_id="missing",
+                quantity=1,
+                part_length_mm=1000,
+                kerf_mm=0,
+                acting_user_id=1,
+            )
+        )
 
 
 def test_link_erp_order_use_case_links_and_transitions_status() -> None:

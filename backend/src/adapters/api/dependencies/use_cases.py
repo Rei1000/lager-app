@@ -90,6 +90,7 @@ from application.use_cases.orders_read_use_cases import (
 from application.use_cases.recalculate_orders_use_case import RecalculateOrdersUseCase
 from application.use_cases.reprioritize_orders_use_case import ReprioritizeOrdersUseCase
 from application.use_cases.reserve_order_use_case import ReserveOrderUseCase
+from application.use_cases.update_order_use_case import UpdateOrderUseCase
 from config.settings import settings
 
 
@@ -149,6 +150,17 @@ def get_recalculate_orders_use_case() -> RecalculateOrdersUseCase:
     return RecalculateOrdersUseCase(
         order_repository=_order_repository,
         stock_snapshot_port=_stock_snapshot_port,
+    )
+
+
+def get_update_order_use_case() -> UpdateOrderUseCase:
+    return UpdateOrderUseCase(
+        order_repository=_order_repository,
+        recalculate_orders_use_case=RecalculateOrdersUseCase(
+            order_repository=_order_repository,
+            stock_snapshot_port=_stock_snapshot_port,
+        ),
+        audit_log_port=_audit_log_repository,
     )
 
 

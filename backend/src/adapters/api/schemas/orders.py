@@ -33,6 +33,14 @@ class RecalculateOrdersRequest(BaseModel):
     material_article_number: str = Field(min_length=1)
 
 
+class UpdateOrderRequest(BaseModel):
+    quantity: int = Field(gt=0)
+    part_length_mm: int = Field(gt=0)
+    kerf_mm: int = Field(ge=0)
+    customer_name: str | None = Field(None, max_length=255)
+    due_date: date | None = None
+
+
 class OrderResponse(BaseModel):
     order_id: str | None
     display_order_code: str

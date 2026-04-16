@@ -142,6 +142,23 @@ export async function fetchHealth(): Promise<{ status: string }> {
   return request<{ status: string }>("/health", { method: "GET" });
 }
 
+export async function updateOrder(
+  orderId: string,
+  payload: {
+    quantity: number;
+    part_length_mm: number;
+    kerf_mm: number;
+    customer_name?: string | null;
+    /** ISO-Datum YYYY-MM-DD */
+    due_date?: string | null;
+  }
+): Promise<OrderDto> {
+  return request<OrderDto>(`/orders/${encodeURIComponent(orderId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function createOrder(payload: {
   order_id: string;
   material_article_number: string;
