@@ -3,6 +3,38 @@ Lager-App für Stangenmaterial
 ![Login](docs/assets/images/disposition/login-desktop.png)
 ![Dashboard](docs/assets/images/disposition/dashboard-desktop.png)
 
+## Einordnung und Ziel der Anwendung
+
+# Lager-App für Stangenmaterial
+
+Diese Anwendung zeigt einen möglichen Ansatz zur Digitalisierung von Lager- und Materialprozessen im Zusammenspiel mit bestehenden ERP-Systemen.
+
+Ziel ist es, operative Abläufe im Lager transparenter, steuerbarer und effizienter zu gestalten, ohne die bestehende Systemlandschaft zu ersetzen.
+
+## Ausgangssituation
+
+In vielen Unternehmen sind ERP-Systeme die zentrale Datenquelle, stoßen jedoch im operativen Alltag an Grenzen – insbesondere bei:
+
+- kurzfristiger Planung und Disposition
+- Transparenz im Lager
+- Priorisierung von Aufträgen
+- mobiler Nutzung im laufenden Betrieb
+
+## Lösungsansatz
+
+Die Anwendung ergänzt bestehende Systeme um eine schlanke, praxisnahe Oberfläche für den operativen Einsatz.
+
+Im Fokus stehen:
+
+- einfache Auftragserfassung und -steuerung
+- klare Priorisierung und Übersicht im Tagesgeschäft
+- Unterstützung von Lager- und Dispositionsprozessen
+- mobile Nutzung direkt im Arbeitsablauf
+
+## Ziel
+
+Die Lösung soll zeigen, wie sich bestehende Systeme sinnvoll erweitern lassen, um operative Prozesse schneller, transparenter und robuster zu machen – ohne komplexe Eingriffe in die bestehende Infrastruktur.
+
 Dieses Repository enthält die technische Grundlage für eine webbasierte Lager- und Dispositionsanwendung für Stangenmaterial.
 
 Die Anwendung folgt strikt:
