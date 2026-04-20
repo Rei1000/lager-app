@@ -9,6 +9,15 @@ Die Anwendung folgt strikt:
 
 ⸻
 
+## Smart Disposition Layer
+
+Die App bildet eine dispositive Planungsschicht über dem ERP: Das Backend bewertet Materialverfügbarkeit **sequenziell** entlang der priorisierten App-Aufträge und liefert Ampelstatus sowie abgeleitete Kennzahlen. Das Frontend stellt diese Ergebnisse dar und filtert sie – ohne eigene Dispositionslogik.
+
+- [docs/smart-disposition-layer.md](docs/smart-disposition-layer.md)
+- [docs/Smart_Disposition_Layer.pdf](docs/Smart_Disposition_Layer.pdf)
+
+⸻
+
 🧭 Projektziel
 
 Ziel ist die Entwicklung einer Anwendung zur:
