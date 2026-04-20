@@ -210,6 +210,7 @@ lib/
 
 - Routing
 - Seitenstruktur
+- z. B. `app/orders/page.tsx` – Tabs (Neuer Auftrag / Aufträge), bei Query `traffic_light` Umschalten auf die Listenansicht (reine UI-Anbindung an die URL)
 
 ---
 
@@ -222,6 +223,15 @@ Fachlich gruppierte Module:
 - dashboard
 - admin
 
+**orders** (Auftragsübersicht, Planung, Bearbeitung):
+
+- Listen- und Filter-UI: u. a. `orders-open-overview.tsx` – Zusammenführung geladener App- und Simulator-Daten; **Filter** (Ampel per URL, Kunde, Fälligkeit, Status, Volltext, Materialstruktur) arbeiten auf **DTO-Feldern** aus der API, ohne Dispositions-Neuberechnung (`matchesListingFilters` und Hilfsfunktionen).
+- Mobile: z. B. `mobile-material-reorder-sheet.tsx` – gestützte Reihenfolgeänderung; Reihung nur konsistent, wenn keine Filter-Teilmenge die vollständige Material-Sequenz verdeckt (siehe Architektur-/Order-Doku).
+
+**dashboard**:
+
+- Übersicht offener Aufträge und Ampel-Zähler aus dem Backend; **Navigation** per Link zu `/orders?traffic_light=…` auf gefilterte Auftragsliste (`dashboard-overview.tsx`).
+
 ---
 
 ### 6.3 components/
@@ -229,6 +239,10 @@ Fachlich gruppierte Module:
 - UI-Komponenten
 - wiederverwendbar
 - keine Fachlogik
+
+**shared** (z. B. `components/shared/`):
+
+- `traffic-light-indicator.tsx` – **Darstellung** von `traffic_light`-Werten aus der API (Farben, ggf. kompakte Labels auf schmalen Viewports), **keine** Berechnung der Ampel.
 
 ---
 
@@ -265,6 +279,7 @@ docs/ enthält:
 - pflichtenheft.md → fachliche Anforderungen
 - architecture.md → Systemarchitektur
 - datenbankmodell.md → Datenstruktur
+- order-architecture.md → App vs. ERP, Verfügbarkeit, Disposition, UI-Kontrakt
 - projektrules.md → Umsetzungsregeln
 - projectstructure.md → Projektstruktur
 
