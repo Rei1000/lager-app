@@ -20,8 +20,17 @@ Dieses Dokument ergänzt:
 
 - `docs/pflichtenheft.md`
 - `docs/datenbankmodell.md`
+- `docs/order-architecture.md` (App vs. ERP, Disposition, UI-Kontrakt)
 - `docs/projektrules.md`
-- docs/projectstructure.md
+- `docs/projectstructure.md`
+
+### 1.1 Rolle dieses Dokuments und zusätzlicher Architekturdokumente (verbindlich)
+
+- `docs/architecture.md` ist die **zentrale Architekturquelle** des Projekts. Grundlegende Architekturregeln (Schichten, Ports/Adapter, Abhängigkeitsrichtung, Trennung Frontend/Backend/ERP, Verantwortlichkeiten) sind **ausschließlich hier** verbindlich definiert.
+- `docs/order-architecture.md` ist eine **thematische Spezialisierung** (App vs. ERP, Disposition, UI-Kontrakt). Sie **konkretisiert** Regeln dieses Dokuments für den Auftrags- und Dispositionsbereich, **ersetzt** sie aber nicht.
+- Weitere zusätzliche Architekturdokumente (aktuell oder künftig) dürfen **keine** grundlegenden Architekturregeln dieses Dokuments **ändern, aufweichen oder überschreiben**. Sie dürfen nur **präzisieren, ergänzen oder fachlich einordnen**, solange das **widerspruchsfrei** zu `architecture.md` bleibt.
+- Bei Widersprüchen gilt: `architecture.md` **hat Vorrang**; die spezialisierte Doku ist dann anzupassen.
+- Echte Änderungen an grundlegenden Architekturregeln erfolgen **ausschließlich** in `architecture.md` und werden dort explizit dokumentiert (keine stillen Architekturwechsel, vgl. `docs/projektrules.md`).
 
 ---
 
@@ -185,6 +194,19 @@ Das Frontend:
 - visualisiert Status und Ampelfarben
 - bietet responsive Oberflächen für Lager und Admin
 
+Das Frontend **darf** Listen und Kennzahlen **filtern oder sortieren**, die **ausschließlich auf Feldern** beruhen, die das Backend bereits geliefert hat (z. B. Teilmenge nach `traffic_light`, `customer_name`, `due_date`). Solche Filter sind **keine** Ersatz- oder Zweit-Disposition.
+
+Das Frontend **darf nicht**:
+
+- Ampelstatus, disponible Mengen oder Priorität **neu berechnen** oder überschreiben (Quelle der Wahrheit bleibt Backend/Domain)
+- Verfügbarkeit oder Disposition **doppelt** zur Backend-Logik ausrechnen
+
+### 5.2.1 Dashboard und Auftragsliste (eine Dispositionslinie)
+
+- **Ampel** und **`disposition_available_before_mm`** für App-Aufträge stammen aus der **Backend-/Domain-Bewertung** (`evaluate_orders_sequentially` auf Basis `StockSnapshot`).
+- **Dashboard-Zähler** (`red_count`, `yellow_count`, `green_count`) werden im Backend aus **derselben** Anreicherungskette wie die Auftragslistenansicht gebildet – es gibt **keine** separate, davon abweichende Ampel-Berechnung nur für das Dashboard.
+- **Navigation** vom Dashboard zur Auftragsübersicht (z. B. Query `traffic_light`) ist **UI-only**; die fachliche Bewertung erfolgt weiterhin beim Laden der Aufträge über die API.
+
 ### 5.3 Frontend-Struktur
 
 Empfohlene Struktur:
@@ -217,9 +239,30 @@ Bedeutung
 
 - Keine Geschäftslogik im Frontend
 - Keine ERP-spezifische Verarbeitung im Frontend
-- Keine doppelte Berechnung von Verfügbarkeit
-- Das Frontend zeigt nur serverseitig berechnete Zustände
+- Keine doppelte Berechnung von Verfügbarkeit oder Ampel (Anzeige- und Filterlogik auf API-Daten ist erlaubt, siehe 5.2)
+- Das Frontend zeigt serverseitig berechnete Zustände und Felder; Teilmengenfilter ändern daran nichts
 - UI-Komponenten müssen konsistent mit shadcn/ui aufgebaut sein
+
+### 5.5 Backend-Verantwortung (Disposition und Aggregation)
+
+- **Vollständige** Dispositionslogik, **Ampelberechnung** und **Aggregation** für das Dashboard liegen im **Application/Domain-Layer** (Use Cases, `evaluate_orders_sequentially`, Stock-Snapshot-Adapter).
+- Das Backend liefert konsistente **`traffic_light`**- und Mengenfelder an die Clients; das Frontend interpretiert sie nur.
+
+### 5.6 Dashboard-Aggregationen als berechnete API-Felder (verbindlich)
+
+Die Dashboard-Zähler
+
+- **`red_count`**
+- **`yellow_count`**
+- **`green_count`**
+
+sind **berechnete API-Antwortfelder** (DTO-Felder) der Dashboard-Übersicht. Sie werden bei jeder Anfrage im Use Case `GetDashboardOverviewUseCase` aus den angereicherten offenen App-Aufträgen **neu bestimmt** (gleiche Dispositionskette wie die Auftragsliste).
+
+Für diese Felder gilt:
+
+- Sie werden **nicht** in der Datenbank gespeichert. Es gibt **keine** eigenen Spalten, Tabellen oder materialisierten Zähler in `app_orders` oder einem Dashboard-/Statistik-Schema dafür.
+- Das in der API zusätzlich ausgegebene `critical_orders_count` ist ein **Alias** für `red_count` (Abwärtskompatibilität) und ebenfalls rein berechnet.
+- `docs/datenbankmodell.md` wird durch diese DTO-Felder **nicht** ergänzt; Änderungen an API-Antwortformen sind in den API-Schemata (`adapters/api/schemas`) geführt.
 
 ---
 

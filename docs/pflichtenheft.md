@@ -172,6 +172,34 @@ storniert
 
 ---
 
+### 3.9 Dispositionslogik (sequentiell, ohne Abbruch)
+
+- Die Disposition erfolgt **sequenziell** entlang aller offenen **App-Aufträge** je Material, in der durch die Priorisierung festgelegten Reihenfolge.
+- Die Berechnung **bricht nicht ab**, auch wenn die rechnerische Verfügbarkeit in der Sequenz **negativ** wird (globale Unterdeckung oder negative Zwischenstände).
+- Führt die Lage in der Sequenz dazu, dass der Bedarf eines Auftrags **weder** mit Stückgut (Grün) **noch** – sofern zulässig – mit Reststücken (Gelb) gedeckt werden kann, resultiert für diesen Auftrag die Ampel **Rot**.
+- Nachfolgende Aufträge werden danach **weiterhin** bewertet; die Reihenfolgewirkung bleibt erhalten.
+
+---
+
+### 3.10 Kennzahl `disposition_available_before_mm`
+
+Fachliche Bedeutung:
+
+- Gibt das **Stückgut** (Vollmaterial in Millimeter) an, das **unmittelbar vor** der Bewertung **dieses** App-Auftrags in der materialbezogenen **Sequenz** noch zur Verfügung steht.
+- Kennzahl **pro Auftrag** und **reihenfolgeabhängig**: Sie ändert sich, wenn die Priorisierung innerhalb des Materials verändert wird.
+
+Abhängigkeit von der Priorisierung:
+
+- Die Kennzahl wird aus dem Startpool (ERP-Stückgut abzüglich aggregierter offener ERP-Aufträge) und dem Verbrauch aller **vorhergehenden** App-Aufträge desselben Materials innerhalb der Sequenz abgeleitet.
+- Eine Änderung der Auftragsreihenfolge führt zu einer Neuberechnung für alle betroffenen Positionen.
+
+Technische Einordnung:
+
+- Die Berechnung erfolgt **ausschließlich im Backend** (Domain/Application; Sequenzbewertung je Materialgruppe).
+- Die Kennzahl wird **nicht** in der Datenbank gespeichert; sie ist ein aus Stammdaten, ERP-/Simulator-Pipeline und aktueller Auftragsreihenfolge **abgeleiteter Wert**, der in Auftrags-/Listen-Antworten zurückgegeben und in der Oberfläche lediglich **angezeigt** wird.
+
+---
+
 ## 4. Funktionale Anforderungen
 
 ### 4.1 Login
@@ -188,15 +216,15 @@ storniert
 
 #### Anzeige (Dashboard)
 
-- offene Aufträge
-- Status
-- Priorität
-- Ampelfarbe
+- offene Aufträge (Anzahl)
+- Übersicht der Ampelverteilung: **rote / gelbe / grüne** Zähler (serverseitig aus derselben Dispositionslogik wie die Auftragsliste)
+- in der Liste: Status, Priorität, Ampelfarbe je Auftrag (Daten aus Backend)
 
 #### Funktionen (Dashboard)
 
-- Auftrag öffnen
-- Priorität ändern (Drag & Drop)
+- Navigation von den Ampel-Karten zur **gefilterten Auftragsübersicht** (Ampel-Filter per URL)
+- Auftrag öffnen bzw. zur Übersicht springen
+- Priorität ändern (Drag & Drop) in der Auftragsübersicht, soweit fachlich vorgesehen
 - neuen Auftrag anlegen
 
 ---

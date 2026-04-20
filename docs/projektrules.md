@@ -68,6 +68,14 @@ Die App darf:
 - Reihenfolge beeinflusst Verfügbarkeit
 - Berechnung erfolgt sequenziell
 
+#### Verbindliche Regel zur Repriorisierung (vollständige Datenmenge)
+
+- Eine Repriorisierung (Änderung der Auftragsreihenfolge je Material) darf **ausschließlich** auf der **vollständigen** Menge der offenen App-Aufträge dieses Materials erfolgen.
+- An das Backend ist in jedem Fall die **gesamte** Auftrags-ID-Liste des betroffenen Materials in der neuen Reihenfolge zu übergeben. Unvollständige Listen sind **nicht zulässig** und werden abgelehnt.
+- **Teilmengen** (z. B. gefilterte, gesuchte oder anderweitig eingeschränkte Listen im Frontend) dürfen **niemals** eine fachliche Neuberechnung, Persistenz oder Repriorisierung auslösen.
+- Sobald ein Filter, eine Suche oder ein anderer Mechanismus Aufträge ausblendet, ist die Reordering-Funktion in der Oberfläche **zu sperren** (vgl. Abschnitt 5 Frontend-Regeln).
+- Diese Regel ist **nicht interpretierbar**: Fachliche Dispositionslogik und Reihenfolgewirkung werden ausschließlich auf vollständigen Datenmengen berechnet.
+
 ---
 
 ### 3.4 Reststücklogik
@@ -226,6 +234,11 @@ Frontend darf nicht:
 - Verfügbarkeit berechnen
 - Priorisierung berechnen
 - Reservierungen simulieren
+- Ampelstatus oder disponible Mengen **neu** berechnen (Anzeige und **Filter auf bereits vom Backend gelieferten Feldern** sind erlaubt)
+
+**Erlaubt im UI:** Teilmengenfilter (z. B. nach `traffic_light`, Kunde, Fälligkeit) auf Basis der geladenen Auftragsdaten – **ohne** eigene Dispositionslogik.
+
+**Reihenfolge ändern (Repriorisierung):** Nur wenn für ein Material die sichtbare App-Auftragsliste **der vollständigen** Sequenz entspricht; bei aktiven Filtern, die Aufträge ausblenden, ist die Reihung in der Oberfläche zu sperren (Backend verlangt die vollständige ID-Liste je Material).
 
 ---
 
