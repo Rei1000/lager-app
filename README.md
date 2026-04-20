@@ -1,5 +1,8 @@
 Lager-App für Stangenmaterial
 
+![Login](docs/assets/images/disposition/login-desktop.png)
+![Dashboard](docs/assets/images/disposition/dashboard-desktop.png)
+
 Dieses Repository enthält die technische Grundlage für eine webbasierte Lager- und Dispositionsanwendung für Stangenmaterial.
 
 Die Anwendung folgt strikt:
