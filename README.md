@@ -52,16 +52,19 @@ Der beste Einstieg in die Fachlogik ist die Markdown-Version:
 
 - [Konzeptüberblick](docs/smart-disposition-layer.md)
 
-Zusätzlich gibt es eine Präsentationsversion des Gesamtsystems für Leserinnen und Leser, die lieber einen visuellen und fachlichen Überblick möchten.
+## Präsentation des Gesamtsystems
 
-Es stehen zwei komprimierte Varianten zur Verfügung:
+Für einen visuellen und fachlichen Überblick stehen zwei Varianten zur Verfügung:
 
-- [PDF (GitHub-Vorschau, kleinere Datei)](docs/Smart_Disposition_Layer_compressed_low.pdf)
-- [PDF (höhere Qualität, größere Datei)](docs/Smart_Disposition_Layer_compressed_high.pdf)
+**Schnelle Vorschau auf GitHub**  
+[🔎 PDF-Vorschau öffnen](docs/Smart_Disposition_Layer_compressed_low.pdf)
+
+**Höhere Qualität als Download**  
+[⬇️ PDF herunterladen](https://raw.githubusercontent.com/Rei1000/lager-app/main/docs/Smart_Disposition_Layer_compressed_high.pdf)
 
 Hinweis:
 - Die kleinere Version ist für die direkte Anzeige auf GitHub optimiert.
-- Die höhere Version bietet bessere Darstellung und eignet sich besonders für Präsentation oder Download.
+- Die größere Version bietet bessere Darstellung und eignet sich besonders für Präsentation oder Download.
 
 ⸻
 
