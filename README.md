@@ -54,9 +54,14 @@ Der beste Einstieg in die Fachlogik ist die Markdown-Version:
 
 Zusätzlich gibt es eine Präsentationsversion des Gesamtsystems für Leserinnen und Leser, die lieber einen visuellen und fachlichen Überblick möchten.
 
-Dabei handelt es sich um eine komprimierte Version der Präsentation (optimiert für GitHub-Darstellung und Download):
+Es stehen zwei komprimierte Varianten zur Verfügung:
 
-- [Präsentation des Gesamtsystems (PDF, komprimierte Version)](docs/Smart_Disposition_Layer_compressed.pdf)
+- [PDF (GitHub-Vorschau, kleinere Datei)](docs/Smart_Disposition_Layer_compressed_low.pdf)
+- [PDF (höhere Qualität, größere Datei)](docs/Smart_Disposition_Layer_compressed_high.pdf)
+
+Hinweis:
+- Die kleinere Version ist für die direkte Anzeige auf GitHub optimiert.
+- Die höhere Version bietet bessere Darstellung und eignet sich besonders für Präsentation oder Download.
 
 ⸻
 
