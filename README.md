@@ -52,9 +52,11 @@ Der beste Einstieg in die Fachlogik ist die Markdown-Version:
 
 - [Konzeptüberblick](docs/smart-disposition-layer.md)
 
-Zusätzlich gibt es eine Präsentationsversion des Gesamtsystems für Leserinnen und Leser, die lieber einen visuellen und fachlichen Überblick möchten, statt direkt in Code, README oder Detaildokumente einzusteigen:
+Zusätzlich gibt es eine Präsentationsversion des Gesamtsystems für Leserinnen und Leser, die lieber einen visuellen und fachlichen Überblick möchten.
 
-- [Präsentation des Gesamtsystems (PDF)](docs/Smart_Disposition_Layer.pdf)
+Dabei handelt es sich um eine komprimierte Version der Präsentation (optimiert für GitHub-Darstellung und Download):
+
+- [Präsentation des Gesamtsystems (PDF, komprimierte Version)](docs/Smart_Disposition_Layer_compressed.pdf)
 
 ⸻
 
