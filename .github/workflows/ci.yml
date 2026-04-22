@@ -31,7 +31,11 @@ jobs:
         if: hashFiles('frontend/package.json') != ''
         run: |
           cd frontend
-          npm run lint
+          if npm run | grep -q "lint"; then
+            npm run lint
+          else
+            echo "No lint script found, skipping"
+          fi
 
       # ---------- BACKEND ----------
 
@@ -46,15 +50,17 @@ jobs:
         run: |
           cd backend
           pip install -r requirements.txt
+          pip install pytest httpx
 
       - name: Install backend deps (pyproject)
         if: hashFiles('backend/pyproject.toml') != ''
         run: |
           cd backend
           pip install .
+          pip install pytest httpx
 
       - name: Run backend tests
         if: hashFiles('backend') != ''
         run: |
           cd backend
-          pytest
+          python -m pytest
