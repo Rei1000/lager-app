@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  basic-checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ---------- FRONTEND ----------
+
+      - name: Set up Node
+        if: hashFiles('frontend/package.json') != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install frontend deps
+        if: hashFiles('frontend/package.json') != ''
+        run: |
+          cd frontend
+          npm install
+
+      - name: Run frontend lint
+        if: hashFiles('frontend/package.json') != ''
+        run: |
+          cd frontend
+          if npm run | grep -q "lint"; then
+            npm run lint
+          else
+            echo "No lint script found, skipping"
+          fi
+
+      # ---------- BACKEND ----------
+
+      - name: Set up Python
+        if: hashFiles('backend/requirements.txt') != '' || hashFiles('backend/pyproject.toml') != ''
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend deps
+        if: hashFiles('backend/requirements.txt') != ''
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pip install pytest httpx
+
+      - name: Install backend deps (pyproject)
+        if: hashFiles('backend/pyproject.toml') != ''
+        run: |
+          cd backend
+          pip install .
+          pip install pytest httpx
+
+      - name: Run backend tests
+        if: hashFiles('backend') != ''
+        run: |
+          cd backend
+          python -m pytest

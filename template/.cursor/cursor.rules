@@ -1,0 +1,279 @@
+# Goldstandard Development Rules (Template)
+
+Dieses Template wird strikt und verbindlich nach den Dokumenten im Verzeichnis `docs/` sowie den Regeln in `.github/` und `.cursor/` umgesetzt.
+
+---
+
+## 1. Grundprinzipien
+
+- Dokumentation ist führend (Docs First)
+- Keine Implementierung ohne Spezifikation
+- Keine stillen Annahmen über Geschäftslogik
+- Jede Änderung muss nachvollziehbar sein
+- Wiederverwendbarkeit und Klarheit haben Vorrang vor schneller Improvisation
+
+---
+
+## 2. Verbindliche Dokumentationsbasis
+
+Vor jeder Umsetzung sind die projektspezifischen Dokumente zu prüfen.
+
+Typische Referenzen:
+
+1. Anforderungen / Pflichtenheft
+2. Architektur
+3. Projektstruktur
+4. Datenmodell
+5. Projektrules / Entwicklungsregeln
+
+Wenn Dokumentation und Code widersprechen, gilt die Dokumentation als führend.
+
+Es ist verboten, nur auf Basis allgemeiner Framework-Konventionen oder Standard-Scaffolding zu arbeiten.
+
+---
+
+## 3. Pflichtablauf vor jeder Umsetzung
+
+Vor jeder Analyse, Änderung oder Implementierung ist immer in dieser Reihenfolge zu arbeiten:
+
+1. Relevante Dokumente lesen
+2. Aufgabe fachlich einordnen
+3. Aufgabe architektonisch einer Schicht zuordnen
+4. Zielordner anhand der Projektstruktur festlegen
+5. Betroffene Tests bestimmen
+6. Änderung minimal und schichtkonform umsetzen
+7. Dokumentationsbedarf prüfen
+8. Definition of Done prüfen
+
+Es ist verboten, direkt mit Implementierung zu beginnen, ohne die Aufgabe vorher architektonisch einzuordnen.
+
+---
+
+## 4. Git-Workflow
+
+- Niemals direkt auf `main` arbeiten
+- Jede Änderung erfolgt über einen eigenen Branch
+- Jeder Branch hat genau ein Ziel
+- Keine Misch-Commits
+- Pull Requests sind verpflichtend
+- Nach Merge wird der Branch gelöscht
+- Squash Merge ist bevorzugt, wenn mehrere kleine Fix-Commits zu einem Thema gehören
+
+---
+
+## 5. Definition of Done
+
+Eine Aufgabe ist nur abgeschlossen, wenn:
+
+- die Änderung funktional korrekt ist
+- die richtige Schicht und Struktur eingehalten wurden
+- Tests vorhanden sind, falls relevant
+- Dokumentation geprüft und bei Bedarf aktualisiert wurde
+- CI erfolgreich ist
+- der PR erstellt und gemerged wurde
+- keine Regel verletzt wurde
+
+---
+
+## 6. Architekturprinzipien
+
+Dieses Template folgt grundsätzlich:
+
+- Domain-Driven Design (DDD)
+- hexagonaler Architektur
+- klarer Trennung von Verantwortlichkeiten
+- API-first Denken, wenn ein Backend vorhanden ist
+
+Schichten:
+
+- Domain → Fachlogik
+- Application → Use Cases / Orchestrierung
+- Ports → Interfaces / Verträge
+- Adapter → Infrastruktur / technische Implementierungen
+- API → Schnittstellenebene
+- Frontend → Darstellung und Interaktion
+
+---
+
+## 7. Architekturregeln
+
+- Abhängigkeiten zeigen nach innen
+- Domain kennt keine Infrastruktur
+- Application nutzt Domain + Ports
+- Adapter implementieren Ports
+- API enthält keine Fachlogik
+- Frontend enthält keine Business-Logik
+- Keine doppelte Implementierung derselben Regel in mehreren Schichten
+- Keine versteckten Architekturwechsel
+
+---
+
+## 8. Änderungsdisziplin
+
+- Keine Änderungen außerhalb des Task-Kontexts
+- Keine unbeabsichtigten Nebenwirkungen
+- Keine „Quick Fixes“ ohne Dokumentation
+- Keine stillen zusätzlichen Verbesserungen im selben Commit
+- Keine Änderungen an Dateien, die nicht Teil des erlaubten Scopes sind
+
+---
+
+## 9. Teststrategie
+
+- Tests sind Teil der Implementierung
+- Keine „Test später“-Mentalität
+- Tests müssen reproduzierbar sein
+- CI muss Tests automatisch ausführen
+- Testarten müssen zur Schicht passen
+
+Typische Zuordnung:
+
+- Domain → Unit Tests
+- Application → Use-Case-Tests
+- Adapter → Integrationsnahe Tests
+- API → Endpoint-Tests
+- Frontend → UI-/Workflow-Tests
+
+---
+
+## 10. Benennungsregeln
+
+- Fachlich verständliche Namen verwenden
+- Keine generischen Namen wie `utils`, `helper`, `manager` ohne fachlichen Kontext
+- Keine technischen Namen ohne Bedeutung für die Domäne
+- Begriffe müssen konsistent zwischen Dokumentation, Code und Tests verwendet werden
+
+---
+
+## 11. Agent-Verhalten
+
+- Agent trifft keine Annahmen über Geschäftslogik
+- Agent arbeitet strikt nach Vorgaben
+- Agent verändert nur explizit erlaubte Dateien
+- Agent validiert Ergebnisse vor Abschluss
+- Agent darf keine Architektur oder Fachlogik erfinden, wenn diese nicht dokumentiert ist
+- Agent darf keine zusätzlichen Änderungen „nebenbei“ einführen
+
+---
+
+## 12. Dokumentationspflicht
+
+Bei jeder Änderung prüfen:
+
+- Anforderungen
+- Architektur
+- Projektstruktur
+- Datenmodell
+- technische Projektübersicht / README
+
+Wenn ein neues Modul, ein neuer technischer Baustein oder eine neue zentrale Funktion eingeführt wird, muss die README geprüft und bei Bedarf aktualisiert werden.
+
+Dokumentation ist verpflichtend. Code, Datenmodell und Dokumentation dürfen nicht auseinanderlaufen.
+
+---
+
+## 13. Qualitätsregeln
+
+Code muss:
+
+- verständlich sein
+- strukturiert sein
+- testbar sein
+- wartbar sein
+- ohne versteckte Seiteneffekte sein
+
+Bevor neuer Code geschrieben wird, ist zu prüfen, ob eine bestehende Struktur erweitert werden kann.
+
+---
+
+## 14. Verbotene Patterns
+
+- Fachlogik in Infrastruktur
+- Fachlogik in API
+- doppelte Logik
+- versteckte Architekturwechsel
+- Magic Values / Magic Strings
+- direkte Kopplung unabhängiger Module
+- unkommentierte Sonderwege außerhalb der definierten Struktur
+
+---
+
+## 15. Laufzeit- und Umgebungsprinzipien
+
+- Die Entwicklungsumgebung muss reproduzierbar sein
+- Lokale Umgebung, CI und spätere Deployment-Umgebung sollen konsistent sein
+- Keine Abhängigkeit von individuellen lokalen Setups
+- Infrastruktur und Startlogik müssen versioniert und im Repository definiert sein
+
+Typische Umsetzung:
+
+- Containerisierung (z. B. Docker)
+- Infrastrukturdefinition im Repository
+- klar definierte Startprozesse
+- dokumentierte Umgebungsvariablen
+
+Verboten:
+
+- manuelle Setup-Schritte ohne Dokumentation
+- „funktioniert nur lokal“-Lösungen
+- versteckte Abhängigkeiten außerhalb des Repositories
+
+---
+
+## 16. Verhalten bei Unsicherheit
+
+Wenn etwas unklar ist:
+
+1. Anforderungen prüfen
+2. Architektur prüfen
+3. Projektstruktur prüfen
+4. Datenmodell prüfen
+5. Projektrules prüfen
+
+Keine eigene Architektur oder Geschäftslogik erfinden.
+
+Im Zweifel ist die konservativere, stärker getrennte und dokumentationsgetreuere Lösung zu wählen.
+
+---
+
+## 17. Execution Checklist
+
+Vor Abschluss jeder Aufgabe prüfen:
+
+1. Fachlich korrekt verstanden?
+2. Richtige Schicht gewählt?
+3. Richtiger Ordner verwendet?
+4. Tests vorhanden oder bewusst nicht erforderlich?
+5. Dokumentation geprüft?
+6. Git-Regeln eingehalten?
+7. Keine Nebenwirkungen?
+8. CI-/Umgebungsaspekte berücksichtigt?
+9. Qualität und Benennung ausreichend?
+10. Scope sauber eingehalten?
+
+Wenn nicht: Aufgabe ist nicht fertig.
+
+---
+
+## Ziel
+
+Diese Regeln stellen sicher:
+
+- hohe Codequalität
+- klare Architektur
+- saubere Zusammenarbeit
+- reproduzierbare Entwicklungsumgebung
+- Wiederverwendbarkeit für neue Projekte
+
+---
+
+## 4. Abschlussprüfung
+
+git status
+
+Erwartung:
+
+- genau eine neue Datei:
+  template/.cursor/cursor.rules
+
+- keine anderen Änderungen
