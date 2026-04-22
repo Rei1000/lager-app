@@ -50,14 +50,14 @@ jobs:
         run: |
           cd backend
           pip install -r requirements.txt
-          pip install pytest
+          pip install pytest httpx
 
       - name: Install backend deps (pyproject)
         if: hashFiles('backend/pyproject.toml') != ''
         run: |
           cd backend
           pip install .
-          pip install pytest
+          pip install pytest httpx
 
       - name: Run backend tests
         if: hashFiles('backend') != ''
